@@ -1,0 +1,34 @@
+/* LECTURE LISTENER */
+
+.lecture-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lecture-card {
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+}
+
+.lecture-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.lecture-result {
+  padding: 16px;
+  margin-top: 20px;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+@media (max-width: 768px) {
+  .lecture-controls {
+    flex-direction: column;
+  }
+}

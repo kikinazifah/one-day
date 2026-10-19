@@ -1,0 +1,142 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}AI Lecturer — Akademia AI{% endblock %}
+{% block page_label %}AI Lecturer (Dosen AI){% endblock %}
+
+{% block scripts %}
+<script src="{% static 'dashboard/ai_lecturer.js' %}" defer></script>
+{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'dashboard/ai_lecturer.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="lecturer-page">
+    <div class="lecturer-heading">
+        <div>
+            <div class="lecturer-eyebrow"><span class="lecturer-status-dot"></span> AKADEMIA AI · RUANG KONSULTASI</div>
+            <h1>AI Lecturer <span>(Dosen AI)</span></h1>
+            <p>Tanya materi kuliah, pahami konsep yang sulit, dan belajar dengan ritmemu sendiri.</p>
+        </div>
+        <div class="lecturer-online"><span class="lecturer-status-dot"></span> Asisten siap membantu</div>
+    </div>
+
+    <div class="lecturer-layout">
+        <section class="lecturer-chat-card">
+            <header class="lecturer-chat-header">
+                <div class="lecturer-avatar"><span class="material-symbols-outlined">school</span></div>
+                <div class="lecturer-chat-title">
+                    <h2>Dosen AI Akademia</h2>
+                    <p>Asisten belajar untuk berbagai mata kuliah</p>
+                </div>
+                <button class="lecturer-icon-button" id="clearLecturerChat" type="button" title="Mulai percakapan baru"
+                    aria-label="Mulai percakapan baru">
+                    <span class="material-symbols-outlined">restart_alt</span>
+                </button>
+            </header>
+
+            <div class="lecturer-chat-body" id="lecturerChat" aria-live="polite">
+                <div class="lecturer-date-label"><span>PERCakapan BARU</span></div>
+                <article class="lecturer-message lecturer-message-ai">
+                    <div class="lecturer-message-avatar"><span class="material-symbols-outlined">auto_awesome</span>
+                    </div>
+                    <div class="lecturer-message-content">
+                        <div class="lecturer-message-name">Dosen AI <span class="lecturer-ai-badge">AI ASSISTANT</span>
+                        </div>
+                        <div class="lecturer-bubble">
+                            <p>Halo! 👋 Aku Dosen AI, teman belajarmu di Akademia AI.</p>
+                            <p>Ada materi kuliah yang ingin kamu pahami? Kirim pertanyaanmu, nanti kita bahas langkah
+                                demi langkah dengan bahasa yang mudah dimengerti.</p>
+                            <p class="lecturer-small-note">Tips: tuliskan nama mata kuliah dan bagian yang bikin bingung
+                                agar jawabannya lebih terarah.</p>
+                        </div>
+                    </div>
+                </article>
+            </div>
+
+            <div class="lecturer-suggestions">
+                <div class="lecturer-suggestions-title">Coba tanyakan</div>
+                <div class="lecturer-prompt-list">
+                    <button type="button" class="lecturer-prompt"
+                        data-prompt="Jelaskan konsep ini dengan bahasa sederhana dan berikan contoh sehari-hari."><span
+                            class="material-symbols-outlined">lightbulb</span> Jelaskan konsep sulit</button>
+                    <button type="button" class="lecturer-prompt"
+                        data-prompt="Buatkan 5 soal latihan dari materi ini beserta kunci jawabannya."><span
+                            class="material-symbols-outlined">quiz</span> Buat soal latihan</button>
+                    <button type="button" class="lecturer-prompt"
+                        data-prompt="Rangkum materi ini menjadi poin-poin penting untuk belajar sebelum ujian."><span
+                            class="material-symbols-outlined">summarize</span> Rangkum materi</button>
+                    <button type="button" class="lecturer-prompt"
+                        data-prompt="Berikan contoh penerapan materi ini dalam proyek Rekayasa Perangkat Lunak."><span
+                            class="material-symbols-outlined">code</span> Contoh penerapan</button>
+                </div>
+            </div>
+
+            <form class="lecturer-composer" id="lecturerForm">
+                <label class="sr-only" for="lecturerInput">Pertanyaan untuk Dosen AI</label>
+                <textarea id="lecturerInput" rows="2"
+                    placeholder="Tulis pertanyaan atau materi yang ingin kamu diskusikan..." required></textarea>
+                <div class="lecturer-composer-footer">
+                    <span class="lecturer-input-hint"><span class="material-symbols-outlined">tips_and_updates</span>
+                        Enter untuk mengirim · Shift + Enter untuk baris baru</span>
+                    <button class="lecturer-send-button" type="submit">Kirim pertanyaan <span
+                            class="material-symbols-outlined">send</span></button>
+                </div>
+            </form>
+            <p class="lecturer-disclaimer">Jawaban AI bisa saja kurang tepat. Gunakan buku, modul, dan arahan dosen
+                sebagai referensi utama.</p>
+        </section>
+
+        <aside class="lecturer-side-column">
+            <section class="lecturer-side-card lecturer-feature-card">
+                <div class="lecturer-feature-icon"><span class="material-symbols-outlined">auto_awesome</span></div>
+                <div class="lecturer-feature-label">LEARNING ASSISTANT</div>
+                <h2>Belajar lebih terarah.</h2>
+                <p>Mulai dari pertanyaan sederhana sampai pembahasan konsep yang lebih mendalam.</p>
+                <div class="lecturer-feature-points">
+                    <div><span class="material-symbols-outlined">check_circle</span> Penjelasan bertahap</div>
+                    <div><span class="material-symbols-outlined">check_circle</span> Contoh dan analogi</div>
+                    <div><span class="material-symbols-outlined">check_circle</span> Latihan pemahaman</div>
+                </div>
+            </section>
+
+            <section class="lecturer-side-card">
+                <div class="lecturer-side-card-heading">
+                    <div><span class="material-symbols-outlined">history</span>
+                        <h3>Ide sesi belajar</h3>
+                    </div>
+                </div>
+                <button class="lecturer-history-item" type="button"
+                    data-prompt="Jelaskan perbedaan frontend dan backend beserta contoh teknologi yang digunakan.">
+                    <span class="lecturer-history-icon lavender"><span
+                            class="material-symbols-outlined">web</span></span>
+                    <span><strong>Frontend &amp; Backend</strong><small>Dasar pengembangan web</small></span>
+                    <span class="material-symbols-outlined lecturer-chevron">chevron_right</span>
+                </button>
+                <button class="lecturer-history-item" type="button"
+                    data-prompt="Jelaskan konsep database relasional, primary key, foreign key, dan berikan contoh sederhana.">
+                    <span class="lecturer-history-icon mint"><span
+                            class="material-symbols-outlined">database</span></span>
+                    <span><strong>Konsep Database</strong><small>Relasi dan struktur data</small></span>
+                    <span class="material-symbols-outlined lecturer-chevron">chevron_right</span>
+                </button>
+                <button class="lecturer-history-item" type="button"
+                    data-prompt="Jelaskan cara kerja API REST dan contoh penggunaan GET, POST, PUT, PATCH, dan DELETE.">
+                    <span class="lecturer-history-icon amber"><span class="material-symbols-outlined">api</span></span>
+                    <span><strong>REST API</strong><small>Metode HTTP dan contoh</small></span>
+                    <span class="material-symbols-outlined lecturer-chevron">chevron_right</span>
+                </button>
+            </section>
+
+            <section class="lecturer-help-card">
+                <span class="material-symbols-outlined">menu_book</span>
+                <div><strong>Belajar dari sumber tepercaya</strong>
+                    <p>Cocokkan penjelasan dengan modul perkuliahan dan materi dari dosenmu.</p>
+                </div>
+            </section>
+        </aside>
+    </div>
+</section>
+{% endblock %}

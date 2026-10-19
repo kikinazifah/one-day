@@ -1,0 +1,87 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}RAG Document Assistant — Akademia AI{% endblock %}
+
+{% block page_label %}RAG Document Assistant{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'dashboard/lecture_listener.css' %}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'dashboard/lecture_listener.js' %}" defer></script>
+{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+    <div>
+        <span class="eyebrow"><span class="material-symbols-outlined">graphic_eq</span> LIVE AUDIO
+            INTELLIGENCE</span>
+        <h1>Lecture Listener &amp; Live Audio Intelligence</h1>
+        <p>Rekam perkuliahan, tinjau transkrip, dan siapkan ringkasan materi.</p>
+    </div>
+    <span class="status-pill"><span class="live-dot"></span> Sistem Siap</span>
+</section>
+
+<div class="lecture-grid">
+    <section class="panel recording-panel">
+        <div class="panel-heading">
+            <span class="panel-icon material-symbols-outlined">mic</span>
+            <div>
+                <h2>Rekaman Perkuliahan</h2>
+                <p>Mulai sesi rekaman untuk simulasi transkripsi.</p>
+            </div>
+        </div>
+
+        <div class="recording-visual">
+            <div class="recording-circle">
+                <span class="material-symbols-outlined">graphic_eq</span>
+            </div>
+            <div class="recording-time" id="recordingTime">00:00:00</div>
+            <span class="status-pill" id="recordingStatus">Belum Merekam</span>
+            <div class="waveform" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i> <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <button class="wide-primary" id="recordButton" type="button">
+                <span class="material-symbols-outlined">mic</span> Mulai Rekaman
+            </button>
+            <p class="form-note">Mode demo: tombol tidak merekam suara sungguhan.</p>
+        </div>
+
+        <label class="field-label" for="lectureTitle">Nama Sesi</label>
+        <input class="form-control" id="lectureTitle" placeholder="Contoh: Perkuliahan Rekayasa Perangkat Lunak" />
+    </section>
+
+    <section class="panel">
+        <div class="panel-heading">
+            <span class="panel-icon material-symbols-outlined">subject</span>
+            <div>
+                <h2>Transkrip Kuliah</h2>
+                <p>Catatan atau transkrip sesi perkuliahan.</p>
+            </div>
+        </div>
+        <textarea class="form-control transcript-area" id="transcript"
+            placeholder="Ketik atau tempel transkrip perkuliahan di sini..."></textarea>
+        <button class="wide-primary" id="summarizeButton" type="button">
+            <span class="material-symbols-outlined">auto_awesome</span> Buat Ringkasan
+        </button>
+        <div class="summary-box" id="lectureSummary">
+            <h3>Ringkasan Materi</h3>
+            <p>Ringkasan yang kamu buat akan ditampilkan di sini.</p>
+        </div>
+    </section>
+</div>
+
+<section class="panel mt-panel">
+    <div class="panel-heading">
+        <span class="panel-icon material-symbols-outlined">history</span>
+        <div>
+            <h2>Riwayat Sesi</h2>
+            <p>Sesi yang dibuat pada halaman ini selama browser digunakan.</p>
+        </div>
+    </div>
+    <div id="sessionHistory" class="history-empty">Belum ada sesi rekaman.</div>
+</section>
+{% endblock %}

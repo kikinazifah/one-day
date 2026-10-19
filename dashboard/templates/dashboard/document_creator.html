@@ -1,0 +1,103 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}RAG Document Assistant — Akademia AI{% endblock %}
+
+{% block page_label %}RAG Document Assistant{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'dashboard/document_creator.css' %}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'dashboard/document_creator.js' %}" defer></script>
+{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+    <div>
+        <span class="eyebrow"><span class="material-symbols-outlined">description</span> AKADEMIA AI
+            WORKSPACE</span>
+        <h1>Generator Dokumen Akademik</h1>
+        <p>Buat laporan, presentasi, dan dokumen akademik dalam satu tempat.</p>
+    </div>
+    <span class="status-pill"><span class="live-dot"></span> AI Siap Digunakan</span>
+</section>
+
+<div class="document-layout">
+    <section class="panel">
+        <div class="panel-heading">
+            <span class="panel-icon material-symbols-outlined">edit_document</span>
+            <div>
+                <h2>Buat Dokumen Baru</h2>
+                <p>Isi informasi dokumen yang ingin kamu buat.</p>
+            </div>
+        </div>
+
+        <form id="documentForm">
+            <label class="field-label" for="docType">Jenis Dokumen</label>
+            <select id="docType" class="form-control">
+                <option value="Laporan akademik">Laporan akademik</option>
+                <option value="Makalah">Makalah</option>
+                <option value="Proposal penelitian">Proposal penelitian</option>
+                <option value="Presentasi">Presentasi</option>
+                <option value="Ringkasan materi">Ringkasan materi</option>
+            </select>
+
+            <label class="field-label" for="docTitle">Judul Dokumen</label>
+            <input class="form-control" id="docTitle" placeholder="Contoh: Laporan Praktikum Basis Data" required />
+
+            <label class="field-label" for="docSubject">Mata Kuliah</label>
+            <input class="form-control" id="docSubject" placeholder="Nama mata kuliah" />
+
+            <label class="field-label" for="docDescription">Instruksi atau Isi Dokumen</label>
+            <textarea class="form-control textarea-large" id="docDescription"
+                placeholder="Jelaskan topik, tujuan, struktur, atau materi yang ingin dibahas..." required></textarea>
+
+            <div class="two-fields">
+                <div>
+                    <label class="field-label" for="docLanguage">Bahasa</label>
+                    <select class="form-control" id="docLanguage">
+                        <option>Bahasa Indonesia</option>
+                        <option>Bahasa Inggris</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="docLength">Panjang Dokumen</label>
+                    <select class="form-control" id="docLength">
+                        <option>Singkat</option>
+                        <option selected>Standar</option>
+                        <option>Terperinci</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="wide-primary" type="submit">
+                <span class="material-symbols-outlined">auto_awesome</span>
+                Buat Dokumen
+            </button>
+            <p class="form-note">
+                Pratinjau ini belum mengirim permintaan ke layanan AI.
+            </p>
+        </form>
+    </section>
+
+    <section class="panel preview-panel">
+        <div class="panel-heading">
+            <span class="panel-icon material-symbols-outlined">article</span>
+            <div>
+                <h2>Pratinjau Dokumen</h2>
+                <p>Hasil dokumen akan tampil di area ini.</p>
+            </div>
+        </div>
+        <div class="empty-state" id="documentPreview">
+            <span class="material-symbols-outlined">description</span>
+            <h3>Belum Ada Dokumen</h3>
+            <p>
+                Lengkapi formulir, lalu tekan tombol Buat Dokumen untuk melihat
+                ringkasan permintaanmu.
+            </p>
+        </div>
+    </section>
+</div>
+{% endblock %}

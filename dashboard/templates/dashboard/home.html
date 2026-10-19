@@ -1,0 +1,463 @@
+{% load static %}
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Akademia AI — Dashboard</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:FILL@0..1&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="{% static 'dashboard/style.css' %}" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <a href="/" class="brand">
+          <span class="brand-icon material-symbols-outlined">auto_awesome</span>
+          <span class="brand-name">Akademia AI</span>
+          <span class="version">v3.4 Production</span>
+        </a>
+
+        <div class="campus-card">
+          <div class="campus-icon material-symbols-outlined">school</div>
+          <div>
+            <strong>Akademia Studio</strong>
+            <p>Semester 6 • CS<br />Undergrad</p>
+          </div>
+        </div>
+
+        <nav class="navigation">
+          <a href="/" class="nav-item active">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span>Dashboard</span>
+            <span class="nav-indicator"></span>
+          </a>
+
+          <a href="{% url 'document_creator' %}" class="nav-item">
+            <span class="material-symbols-outlined">description</span>
+            <span>Document Creator</span>
+            <span class="nav-dot purple"></span>
+          </a>
+
+          <a
+            href="#lecture"
+            class="nav-item"
+            data-notice="Lecture Listener belum terhubung."
+          >
+            <span class="material-symbols-outlined">graphic_eq</span>
+            <span>Lecture Listener</span>
+            <span class="nav-dot green"></span>
+          </a>
+
+          <a
+            href="#reminder"
+            class="nav-item"
+            data-notice="Kamu memiliki 2 pengingat prioritas."
+          >
+            <span class="material-symbols-outlined">notifications_active</span>
+            <span>Reminder System</span>
+            <span class="badge red">2</span>
+          </a>
+
+          <a
+            href="#rag"
+            class="nav-item"
+            data-notice="RAG Document Assistant belum terhubung."
+          >
+            <span class="material-symbols-outlined">manage_search</span>
+            <span>RAG Document Assistant</span>
+          </a>
+
+          <a
+            href="#lecturer"
+            class="nav-item"
+            data-notice="AI Lecturer belum terhubung."
+          >
+            <span class="material-symbols-outlined">school</span>
+            <span>AI Lecturer (Dosen AI)</span>
+          </a>
+
+          <a
+            href="#scheduler"
+            class="nav-item"
+            data-notice="Web Auto Scheduler belum terhubung."
+          >
+            <span class="material-symbols-outlined">calendar_month</span>
+            <span>Web Auto Scheduler</span>
+          </a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="token-card">
+            <div class="token-heading">
+              <span>TOKEN KOMPUTASI</span>
+              <strong>84% Sisa</strong>
+            </div>
+            <div class="token-progress"><span></span></div>
+            <button data-notice="Fitur upgrade kuota belum tersedia.">
+              Upgrade Kuota AI
+            </button>
+          </div>
+
+          <a
+            href="#settings"
+            class="footer-link"
+            data-notice="Pengaturan kampus belum tersedia."
+          >
+            <span class="material-symbols-outlined">settings</span>
+            Pengaturan Kampus
+          </a>
+          <a
+            href="#help"
+            class="footer-link"
+            data-notice="Pusat bantuan belum tersedia."
+          >
+            <span class="material-symbols-outlined">help_outline</span>
+            Bantuan
+          </a>
+        </div>
+      </aside>
+
+      <!-- AREA KONTEN -->
+      <main class="main">
+        <!-- HEADER -->
+        <header class="topbar">
+          <div class="page-title">
+            <span class="material-symbols-outlined">dashboard</span>
+            Dashboard 01
+          </div>
+
+          <label class="search">
+            <span class="material-symbols-outlined">search</span>
+            <input
+              type="search"
+              id="searchInput"
+              placeholder="Cari materi kuliah, rumus, atau berkas..."
+            />
+            <kbd>⌘ K</kbd>
+          </label>
+
+          <div class="header-actions">
+            <button class="button-primary" id="createMaterial">
+              <span class="material-symbols-outlined">add_circle</span>
+              Buat Materi AI
+            </button>
+
+            <button
+              class="process-button"
+              data-notice="Status proses ini masih berupa data contoh."
+            >
+              <span class="live-dot"></span>
+              Proses Aktif <span class="badge blue">5</span>
+            </button>
+
+            <button
+              class="header-icon"
+              aria-label="Notifikasi"
+              data-notice="Kamu memiliki 2 pengingat prioritas."
+            >
+              <span class="material-symbols-outlined">notifications</span>
+              <i></i>
+            </button>
+
+            <button
+              class="header-icon"
+              aria-label="Bantuan"
+              data-notice="Pusat bantuan belum tersedia."
+            >
+              <span class="material-symbols-outlined">help</span>
+            </button>
+
+            <div class="user-profile">
+              <div class="avatar">AF</div>
+              <div class="user-details">
+                <strong>Ahmad Fauzan</strong>
+                <small>NIM 13521049</small>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="content">
+          <!-- WELCOME -->
+          <section class="welcome">
+            <div class="welcome-content">
+              <div class="campus-label">
+                <span class="material-symbols-outlined">school</span>
+                Institut Teknologi Akademika • Semester 6 Ganjil
+              </div>
+
+              <h1>
+                Selamat Datang Kembali, Ahmad! Siap menguasai materi hari ini?
+              </h1>
+
+              <p class="welcome-description">
+                Ada <strong>2 sesi kuliah aktif</strong>, 1 berkas video
+                simulasi selesai diproses, dan 2 pengingat tugas prioritas.
+              </p>
+
+              <div class="prompt">
+                <span class="material-symbols-outlined prompt-icon"
+                  >smart_toy</span
+                >
+                <input
+                  id="promptInput"
+                  type="text"
+                  placeholder="Ketik instruksi, tanya berkas kuliah, atau mulai rekam kelas..."
+                />
+
+                <button
+                  class="prompt-option"
+                  data-notice="Voice STT belum terhubung."
+                >
+                  <span class="material-symbols-outlined">mic</span>
+                  Voice STT
+                </button>
+
+                <label class="prompt-option upload-option">
+                  <span class="material-symbols-outlined">upload_file</span>
+                  Upload PDF
+                  <input
+                    id="pdfInput"
+                    type="file"
+                    accept=".pdf,application/pdf"
+                  />
+                </label>
+
+                <button class="send-button" id="sendPrompt">
+                  Kirim
+                  <span class="material-symbols-outlined">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="date-card">
+              <span class="material-symbols-outlined date-icon"
+                >calendar_month</span
+              >
+              <div>
+                <strong>Rabu, 23 Oktober 2024</strong>
+                <p>Minggu Perkuliahan<br />ke-9</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- WORKER QUEUE -->
+          <section class="worker-section">
+            <div class="section-heading worker-heading">
+              <h2>
+                <span class="live-dot"></span> LIVE ASYNCHRONOUS BACKGROUND
+                WORKER QUEUE (CELERY &amp; REDIS)
+              </h2>
+              <button class="refresh-button" id="refreshQueue">
+                <span class="material-symbols-outlined">refresh</span>
+                Real-time Polling 1s
+              </button>
+            </div>
+
+            <div class="worker-grid">
+              <article class="worker-card">
+                <div class="worker-title">
+                  <span class="material-symbols-outlined">video_library</span>
+                  <strong>Video Dosen AI: Jaringan Saraf Tiruan</strong>
+                  <span class="badge blue">68%</span>
+                </div>
+                <div class="progress"><span></span></div>
+                <div class="worker-info">
+                  <span>Node: Celery/Redis GPU-02</span>
+                  <span>Est. 1m 20s</span>
+                </div>
+              </article>
+
+              <article class="worker-card">
+                <div class="worker-title">
+                  <span class="material-symbols-outlined">travel_explore</span>
+                  <strong>Web Crawler Jadwal Kampus SIA</strong>
+                  <span class="badge green">Selesai</span>
+                </div>
+                <p class="worker-description">
+                  Sinkronisasi Selesai • 0 Konflik Jadwal Terdeteksi
+                </p>
+                <div class="worker-info">
+                  <span>Hash Validated: #SIAM-8941</span>
+                  <strong>Tersinkron 07:15 WIB</strong>
+                </div>
+              </article>
+
+              <article class="worker-card">
+                <div class="worker-title">
+                  <span class="material-symbols-outlined">database</span>
+                  <strong>RAG Vector Indexing (ChromaDB)</strong>
+                  <span class="badge blue">12 Berkas</span>
+                </div>
+                <p class="worker-description">
+                  12 Catatan Kuliah Terindeks (Cosine Similarity)
+                </p>
+                <div class="worker-info">
+                  <span>Embedding: text-embedding-3</span>
+                  <strong>Ready for Prompting</strong>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <!-- FITUR -->
+          <section class="features-section">
+            <div class="section-heading">
+              <h2>6 Fitur Utama Akademia AI</h2>
+              <span class="section-caption"
+                >Pintasan Kerja Cepat Mahasiswa</span
+              >
+            </div>
+
+            <div class="feature-grid">
+              <article class="feature-card">
+                <div class="feature-top">
+                  <span
+                    class="feature-icon purple-icon material-symbols-outlined"
+                    >edit_document</span
+                  >
+                  <span class="badge blue">Word • PPT • Excel</span>
+                </div>
+                <h3>Document Creator</h3>
+                <p>
+                  Generate format laporan ilmiah, slide sidang presentasi, dan
+                  sheet kalkulasi matriks lengkap dengan sitasi otomatis.
+                </p>
+                <div class="feature-actions">
+                  <a
+                    class="feature-button primary-feature"
+                    href="{% url 'document_creator' %}"
+                    >Buat Dokumen</a
+                  >
+                  <a
+                    class="settings-button"
+                    href="{% url 'document_creator' %}"
+                    aria-label="Pengaturan dokumen"
+                  >
+                    <span class="material-symbols-outlined">tune</span>
+                  </a>
+                </div>
+              </article>
+
+              <article class="feature-card" id="lecture">
+                <div class="feature-top">
+                  <span
+                    class="feature-icon purple-icon material-symbols-outlined"
+                    >graphic_eq</span
+                  >
+                  <span class="badge green">Mic Siap</span>
+                </div>
+                <h3>Lecture Listener</h3>
+                <p>
+                  Rekam live suara dosen dengan Whisper STT, transkripsi dibahas
+                  otomatis, dan pembuatan ringkasan poin inti real-time.
+                </p>
+                <button
+                  class="feature-button green-feature"
+                  data-notice="Perekaman kuliah belum terhubung."
+                >
+                  <span class="material-symbols-outlined">mic</span> Mulai Rekam
+                  Kuliah
+                </button>
+              </article>
+
+              <article class="feature-card" id="reminder">
+                <div class="feature-top">
+                  <span class="feature-icon red-icon material-symbols-outlined"
+                    >alarm</span
+                  >
+                  <span class="badge red">2 Mendesak</span>
+                </div>
+                <h3>Reminder System</h3>
+                <p>
+                  Pemberitahuan bertingkat H-3, H-1, dan 3 jam sebelum deadline.
+                  Terhubung dengan push browser atau WhatsApp.
+                </p>
+                <button
+                  class="feature-button outline-feature"
+                  data-notice="Fitur tambah tugas belum tersedia."
+                >
+                  <span class="material-symbols-outlined">add_task</span> Tambah
+                  Tugas Baru
+                </button>
+              </article>
+
+              <article class="feature-card" id="rag">
+                <div class="feature-top">
+                  <span
+                    class="feature-icon purple-icon material-symbols-outlined"
+                    >find_in_page</span
+                  >
+                  <span class="badge blue">ChromaDB Vector</span>
+                </div>
+                <h3>RAG Document Assistant</h3>
+                <p>
+                  Tanya isi materi dari PDF dan catatan kuliah, lalu temukan
+                  jawaban yang relevan dari berkasmu.
+                </p>
+                <button
+                  class="feature-button outline-feature"
+                  data-notice="RAG Document Assistant belum terhubung."
+                >
+                  Tanya Berkas Kuliah
+                </button>
+              </article>
+
+              <article class="feature-card" id="lecturer">
+                <div class="feature-top">
+                  <span
+                    class="feature-icon purple-icon material-symbols-outlined"
+                    >school</span
+                  >
+                  <span class="badge blue">Personalized</span>
+                </div>
+                <h3>AI Lecturer (Dosen AI)</h3>
+                <p>
+                  Pelajari konsep sulit dengan penjelasan bertahap, contoh soal,
+                  dan latihan sesuai mata kuliah.
+                </p>
+                <button
+                  class="feature-button outline-feature"
+                  data-notice="AI Lecturer belum terhubung."
+                >
+                  Mulai Belajar
+                </button>
+              </article>
+
+              <article class="feature-card" id="scheduler">
+                <div class="feature-top">
+                  <span
+                    class="feature-icon purple-icon material-symbols-outlined"
+                    >calendar_month</span
+                  >
+                  <span class="badge green">2 Kelas Hari Ini</span>
+                </div>
+                <h3>Web Auto Scheduler</h3>
+                <p>
+                  Atur agenda kuliah dan tugas berdasarkan jadwal, prioritas,
+                  serta tenggat waktu.
+                </p>
+                <button
+                  class="feature-button outline-feature"
+                  data-notice="Web Auto Scheduler belum terhubung."
+                >
+                  Lihat Jadwal
+                </button>
+              </article>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="status"></div>
+  </body>
+</html>

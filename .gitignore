@@ -1,0 +1,33 @@
+
+# Virtual environment Python
+.venv/
+venv/
+env/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# File rahasia dan konfigurasi lokal
+.env
+.env.*
+!.env.example
+
+# Database lokal
+db.sqlite3
+db.sqlite3-journal
+
+# File upload dan media lokal (opsional)
+media/
+
+# Hasil collectstatic
+staticfiles/
+
+# IDE dan editor
+.vscode/
+.idea/
+
+# Sistem operasi
+.DS_Store
+Thumbs.db

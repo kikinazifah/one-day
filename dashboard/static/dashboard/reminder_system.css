@@ -1,0 +1,36 @@
+/* REMINDER SYSTEM */
+
+.reminder-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.reminder-card {
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.reminder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reminder-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+@media (max-width: 768px) {
+  .reminder-container {
+    grid-template-columns: 1fr;
+  }
+}

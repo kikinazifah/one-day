@@ -1,0 +1,133 @@
+{% load static %}
+<!doctype html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Akademia AI{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="{% static 'dashboard/style.css' %}" />
+    {% block page_css %}{% endblock %}
+</head>
+
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <a href="/" class="brand">
+                <span class="brand-icon material-symbols-outlined">auto_awesome</span>
+                <span class="brand-name">Akademia AI</span>
+                <span class="version">v3.4 Production</span>
+            </a>
+
+            <div class="campus-card">
+                <div class="campus-icon material-symbols-outlined">school</div>
+                <div>
+                    <strong>Akademia Studio</strong>
+                    <p>Semester 6 • CS<br />Undergrad</p>
+                </div>
+            </div>
+
+            <nav class="navigation">
+                <a href="/" class="nav-item {% if active_page == 'home' %}active{% endif %}">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'document_creator' %}"
+                    class="nav-item {% if active_page == 'document' %}active{% endif %}">
+                    <span class="material-symbols-outlined">description</span>
+                    <span>Document Creator</span>
+                </a>
+                <a href="{% url 'lecture_listener' %}"
+                    class="nav-item {% if active_page == 'lecture' %}active{% endif %}">
+                    <span class="material-symbols-outlined">graphic_eq</span>
+                    <span>Lecture Listener</span>
+                </a>
+                <a href="{% url 'reminder_system' %}"
+                    class="nav-item {% if active_page == 'reminder' %}active{% endif %}">
+                    <span class="material-symbols-outlined">notifications_active</span>
+                    <span>Reminder System</span>
+                    <span class="badge red">2</span>
+                </a>
+                <a href="{% url 'rag_assistant' %}" class="nav-item {% if active_page == 'rag' %}active{% endif %}">
+                    <span class="material-symbols-outlined">manage_search</span>
+                    <span>RAG Document Assistant</span>
+                </a>
+                <a href="{% url 'ai_lecturer' %}"
+                    class="nav-item {% if active_page == 'ai_lecturer' %}active{% endif %}">
+                    <span class="material-symbols-outlined">school</span>
+                    <span>AI Lecturer (Dosen AI)</span>
+                </a>
+                <a href="{% url 'auto_scheduler' %}"
+                    class="nav-item {% if active_page == 'auto_scheduler' %}active{% endif %}">
+                    <span class="material-symbols-outlined">calendar_month</span>
+                    <span>Web Auto Scheduler</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="token-card">
+                    <div class="token-heading">
+                        <span>TOKEN KOMPUTASI</span><strong>84% Sisa</strong>
+                    </div>
+                    <div class="token-progress"><span></span></div>
+                    <button type="button">Upgrade Kuota AI</button>
+                </div>
+                <a href="#settings" class="footer-link">
+                    <span class="material-symbols-outlined">settings</span>
+                    Pengaturan Kampus
+                </a>
+                <a href="#help" class="footer-link">
+                    <span class="material-symbols-outlined">help_outline</span>
+                    Bantuan
+                </a>
+            </div>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div class="page-title">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    {% block page_label %}Akademia AI{% endblock %}
+                </div>
+                <label class="search">
+                    <span class="material-symbols-outlined">search</span>
+                    <input type="search" placeholder="Cari materi kuliah, rumus, atau berkas..." />
+                </label>
+                <div class="header-actions">
+                    <button class="button-primary" type="button" onclick="
+                document.querySelector('main input, main textarea')?.focus()
+              ">
+                        <span class="material-symbols-outlined">add_circle</span>
+                        Buat Materi AI
+                    </button>
+                    <button class="process-button" type="button">
+                        <span class="live-dot"></span> Proses Aktif
+                        <span class="badge blue">5</span>
+                    </button>
+                    <button class="header-icon" type="button" aria-label="Notifikasi">
+                        <span class="material-symbols-outlined">notifications</span>
+                    </button>
+                    <div class="user-profile">
+                        <div class="avatar">AF</div>
+                        <div class="user-details">
+                            <strong>Ahmad Fauzan</strong>
+                            <small>NIM 13521049</small>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content page-content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+    <script src="{% static 'dashboard/script.js' %}" defer></script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

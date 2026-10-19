@@ -1,0 +1,41 @@
+/* DOCUMENT CREATOR */
+
+.document-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.document-form,
+.document-preview {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.document-form input,
+.document-form select,
+.document-form textarea {
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.document-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.document-preview {
+  min-height: 300px;
+}
+
+@media (max-width: 768px) {
+  .document-layout {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,59 @@
+/* RAG ASSISTANT */
+
+.rag-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 400px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.rag-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.rag-message {
+  max-width: 85%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  line-height: 1.6;
+}
+
+.rag-message.user {
+  align-self: flex-end;
+  background: #dcfce7;
+}
+
+.rag-message.assistant {
+  align-self: flex-start;
+  background: #f3f4f6;
+}
+
+.rag-input-area {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.rag-input-area textarea {
+  flex: 1;
+  resize: vertical;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+@media (max-width: 768px) {
+  .rag-message {
+    max-width: 100%;
+  }
+}

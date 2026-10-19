@@ -1,0 +1,109 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}RAG Document Assistant — Akademia AI{% endblock %}
+
+{% block page_label %}RAG Document Assistant{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'dashboard/rag_assistant.css' %}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'dashboard/rag_assistant.js' %}" defer></script>
+{% endblock %}
+{% block content %}
+<section class="page-intro">
+    <div>
+        <span class="eyebrow"><span class="material-symbols-outlined">manage_search</span> RETRIEVAL
+            AUGMENTED GENERATION</span>
+        <h1>RAG Document Assistant</h1>
+        <p>Kelola berkas kuliah dan siapkan ruang tanya jawab berbasis dokumen.</p>
+    </div>
+    <span class="status-pill"><span class="live-dot"></span> Workspace Aktif</span>
+</section>
+
+<div class="rag-stats">
+    <article class="stat-card">
+        <span class="stat-icon purple-icon material-symbols-outlined">folder_open</span>
+        <p>Total Dokumen</p>
+        <strong id="fileCount">0</strong>
+        <small>Berkas dalam sesi ini</small>
+    </article>
+    <article class="stat-card">
+        <span class="stat-icon green-icon material-symbols-outlined">database</span>
+        <p>Vector Index</p>
+        <strong>Demo</strong>
+        <small>Database vektor belum terhubung</small>
+    </article>
+    <article class="stat-card">
+        <span class="stat-icon purple-icon material-symbols-outlined">question_answer</span>
+        <p>Tanya Jawab</p>
+        <strong id="questionCount">0</strong>
+        <small>Pertanyaan dalam sesi ini</small>
+    </article>
+</div>
+
+<div class="rag-layout">
+    <section class="panel">
+        <div class="panel-heading">
+            <span class="panel-icon material-symbols-outlined">upload_file</span>
+            <div>
+                <h2>Dokumen Kuliah</h2>
+                <p>Pilih PDF atau TXT untuk menambahkannya ke daftar sesi.</p>
+            </div>
+        </div>
+
+        <label class="drop-zone" for="ragFiles">
+            <span class="material-symbols-outlined">cloud_upload</span>
+            <strong>Unggah dokumen</strong>
+            <span>Pilih file PDF atau TXT dari komputer</span>
+            <span class="drop-button">Pilih Berkas</span>
+            <input id="ragFiles" type="file" accept=".pdf,.txt,application/pdf,text/plain" multiple />
+        </label>
+
+        <div class="file-list" id="ragFileList">
+            <div class="empty-state compact-empty">
+                <span class="material-symbols-outlined">folder_off</span>
+                <p>Belum ada dokumen yang dipilih.</p>
+            </div>
+        </div>
+        <p class="form-note">
+            Demo antarmuka: file belum diunggah atau diproses oleh server.
+        </p>
+    </section>
+
+    <section class="panel chat-panel">
+        <div class="panel-heading">
+            <span class="panel-icon material-symbols-outlined">forum</span>
+            <div>
+                <h2>Tanya Dokumen</h2>
+                <p>Ajukan pertanyaan tentang materi kuliahmu.</p>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="assistant-message">
+                <span class="chat-avatar material-symbols-outlined">smart_toy</span>
+                <div>
+                    <strong>Akademia AI</strong>
+                    <p>
+                        Halo! Pilih dokumen dan tuliskan pertanyaan. Saat ini jawaban masih
+                        berupa demo antarmuka.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <form class="chat-form" id="ragQuestionForm">
+            <textarea id="ragQuestion" placeholder="Tanyakan sesuatu tentang dokumen..." rows="2" required></textarea>
+            <button type="submit" aria-label="Kirim pertanyaan">
+                <span class="material-symbols-outlined">send</span>
+            </button>
+        </form>
+        <p class="form-note">
+            Jawaban berbasis AI memerlukan backend RAG dan model bahasa.
+        </p>
+    </section>
+</div>
+{% endblock %}

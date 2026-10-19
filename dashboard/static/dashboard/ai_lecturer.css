@@ -1,0 +1,66 @@
+/* AI LECTURER */
+
+.lecturer-container {
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  max-height: calc(100vh - 180px);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.lecturer-messages {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 16px;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.lecturer-message {
+  max-width: 85%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.lecturer-message.user {
+  align-self: flex-end;
+  background: #dcfce7;
+}
+
+.lecturer-message.assistant {
+  align-self: flex-start;
+  background: #f3f4f6;
+}
+
+.lecturer-input-area {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.lecturer-input-area textarea {
+  flex: 1;
+  min-height: 48px;
+  max-height: 140px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+}
+
+@media (max-width: 768px) {
+  .lecturer-container {
+    height: calc(100vh - 160px);
+  }
+
+  .lecturer-message {
+    max-width: 100%;
+  }
+}

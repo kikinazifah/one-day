@@ -1,0 +1,766 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %}Web Auto Scheduler — Akademia AI{% endblock %}
+{% block page_label %}Web Auto Scheduler{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'dashboard/auto_scheduler.css' %}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'dashboard/catatan_kuliah.js' %}" defer></script>
+<script src="{% static 'dashboard/auto_scheduler.js' %}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="scheduler-page">
+
+    <!-- HEADER -->
+    <div class="scheduler-header">
+        <div>
+            <div class="scheduler-breadcrumb">
+                AI Workspace / Web Auto Scheduler
+            </div>
+            <h2>Web Auto Scheduler &amp; SIAM Synchronizer</h2>
+            <p>Kelola jadwal kuliah, deteksi bentrok, dan sinkronisasi jadwal akademik.</p>
+        </div>
+
+        <div class="scheduler-header-actions">
+            <button type="button" class="scheduler-btn scheduler-btn-outline" id="exportCalendar">
+                Ekspor Kalender
+            </button>
+            <button type="button" class="scheduler-btn scheduler-btn-primary" id="syncSiam">
+                <span id="syncIcon">⟳</span> Sinkronisasi SIAM
+            </button>
+        </div>
+    </div>
+
+    <!-- RINGKASAN -->
+    <section class="scheduler-metrics">
+        <article class="scheduler-metric">
+            <span class="metric-icon">🔗</span>
+            <p>Status Portal Kampus</p>
+            <h3 id="portalStatus">Belum disinkronkan</h3>
+            <small id="lastSync">Menunggu sinkronisasi</small>
+        </article>
+
+        <article class="scheduler-metric">
+            <span class="metric-icon">📚</span>
+            <p>Beban Akademik</p>
+            <h3>21 SKS</h3>
+            <small>7 mata kuliah</small>
+        </article>
+
+        <article class="scheduler-metric">
+            <span class="metric-icon">⚠️</span>
+            <p>Potensi Bentrok</p>
+            <h3 id="conflictCount">1 Peringatan</h3>
+            <small>Perlu ditinjau</small>
+        </article>
+
+        <article class="scheduler-metric">
+            <span class="metric-icon">📅</span>
+            <p>Hari Efektif</p>
+            <h3>4 Hari</h3>
+            <small>Jadwal perkuliahan</small>
+        </article>
+    </section>
+
+    <!-- AREA UTAMA SCHEDULER -->
+    <section class="scheduler-workspace">
+
+        <!-- PANEL KIRI -->
+        <div class="scheduler-sidebar">
+
+            <article class="scheduler-card">
+                <div class="scheduler-card-heading">
+                    <div>
+                        <h3>Kredensial &amp; Scraper SIAM</h3>
+                        <p>Kontrol sinkronisasi jadwal</p>
+                    </div>
+                    <span class="scheduler-status" id="workerStatus">Siap</span>
+                </div>
+
+                <div class="scheduler-card-body">
+                    <div class="scheduler-account">
+                        <span class="account-avatar">🎓</span>
+                        <div>
+                            <strong>Portal Akademik</strong>
+                            <p>Session SIAM</p>
+                        </div>
+                    </div>
+
+                    <div class="scheduler-info-row">
+                        <span>Status worker</span>
+                        <strong id="workerState">Idle</strong>
+                    </div>
+
+                    <div class="scheduler-info-row">
+                        <span>Mode sinkronisasi</span>
+                        <strong>Manual</strong>
+                    </div>
+
+                    <button type="button" class="scheduler-btn scheduler-btn-primary scheduler-full" id="rescrapeBtn">
+                        ↻ Scrape Ulang
+                    </button>
+
+                    <label class="scheduler-btn scheduler-btn-outline scheduler-full" for="krsFile">
+                        ↑ Unggah KRS PDF
+                    </label>
+
+                    <input id="krsFile" type="file" accept=".pdf" hidden>
+
+                    <p class="scheduler-file-name" id="fileName">
+                        Belum ada file KRS dipilih.
+                    </p>
+
+                    <p class="scheduler-note">
+                        Demo frontend: proses scraping dan pembacaan PDF belum terhubung ke backend.
+                    </p>
+                </div>
+            </article>
+
+            <article class="scheduler-card">
+                <div class="scheduler-card-heading">
+                    <div>
+                        <h3>Smart Conflict Optimizer</h3>
+                        <p>Deteksi bentrok jadwal</p>
+                    </div>
+                    <span class="scheduler-warning-badge">1 Konflik</span>
+                </div>
+
+                <div class="scheduler-card-body">
+                    <div class="scheduler-conflict">
+                        <strong>Potensi irisan waktu terdeteksi!</strong>
+                        <p>
+                            Kuliah IF3110 berpotensi berbenturan dengan jadwal Praktikum Basis Data.
+                        </p>
+                    </div>
+
+                    <h4 class="scheduler-subheading">Preferensi optimasi</h4>
+
+                    <label class="scheduler-checkbox">
+                        <input type="checkbox" id="avoidConflict" checked>
+                        Hindari jadwal yang bentrok
+                    </label>
+
+                    <label class="scheduler-checkbox">
+                        <input type="checkbox" id="preferMorning">
+                        Prioritaskan jadwal pagi
+                    </label>
+
+                    <label class="scheduler-checkbox">
+                        <input type="checkbox" id="includeConsultation">
+                        Sertakan konsultasi dosen
+                    </label>
+
+                    <button type="button" class="scheduler-btn scheduler-btn-primary scheduler-full" id="optimizeBtn">
+                        ✨ Simulasikan Jadwal Alternatif
+                    </button>
+
+                    <div id="optimizationResult" class="scheduler-result" hidden></div>
+                </div>
+            </article>
+
+        </div>
+
+        <!-- KALENDER -->
+        <article class="scheduler-card scheduler-calendar-card">
+            <div class="scheduler-calendar-header">
+                <div>
+                    <h3>Kalender Akademik</h3>
+                    <p>Jadwal kuliah dan kegiatan mingguan</p>
+                </div>
+
+                <div class="scheduler-calendar-actions">
+                    <button type="button" class="scheduler-icon-btn" id="previousWeek"
+                        aria-label="Minggu sebelumnya">‹</button>
+
+                    <button type="button" class="scheduler-btn scheduler-btn-outline" id="todayBtn">Hari ini</button>
+
+                    <button type="button" class="scheduler-icon-btn" id="nextWeek"
+                        aria-label="Minggu berikutnya">›</button>
+                </div>
+            </div>
+
+            <div class="scheduler-calendar-toolbar">
+                <strong id="weekLabel">Minggu ini</strong>
+
+                <select id="calendarFilter" aria-label="Filter jadwal">
+                    <option value="all">Semua kegiatan</option>
+                    <option value="kuliah">Kuliah</option>
+                    <option value="praktikum">Praktikum</option>
+                    <option value="responsi">Responsi</option>
+                </select>
+            </div>
+
+            <div class="scheduler-calendar-scroll">
+                <div class="scheduler-week-grid" id="weekGrid">
+                    <!-- Jadwal dibuat melalui JavaScript -->
+                </div>
+            </div>
+
+            <div class="scheduler-legend">
+                <span><i class="legend-dot legend-kuliah"></i> Kuliah</span>
+                <span><i class="legend-dot legend-praktikum"></i> Praktikum</span>
+                <span><i class="legend-dot legend-responsi"></i> Responsi</span>
+            </div>
+        </article>
+
+    </section>
+
+    <!-- PRODUKTIVITAS -->
+    <section class="scheduler-card scheduler-productivity">
+        <div class="scheduler-card-heading">
+            <div>
+                <h3>Pusat Produktivitas Terintegrasi</h3>
+                <p>Aksi belajar yang dapat dikaitkan dengan jadwal akademik</p>
+            </div>
+        </div>
+
+        <div class="scheduler-productivity-grid">
+            <button type="button" class="scheduler-productivity-item" data-action="Ringkas Materi Praktikum">
+                <span>📄</span>
+                <strong>Ringkas Materi Praktikum</strong>
+                <small>Persiapkan materi kuliah</small>
+            </button>
+
+            <button type="button" class="scheduler-productivity-item" data-action="Buat Flashcard Ujian">
+                <span>🗂️</span>
+                <strong>Buat Flashcard Ujian</strong>
+                <small>Latihan sebelum ujian</small>
+            </button>
+
+            <button type="button" class="scheduler-productivity-item" data-action="Tanya Dosen AI">
+                <span>🤖</span>
+                <strong>Tanya Dosen AI</strong>
+                <small>Diskusikan materi sulit</small>
+            </button>
+
+            <button type="button" class="scheduler-productivity-item" data-action="Cek Tugas">
+                <span>✅</span>
+                <strong>Cek Tugas</strong>
+                <small>Periksa persiapan tugas</small>
+            </button>
+        </div>
+    </section>
+
+    <!-- MODAL DETAIL MATERI SESUAI DESAIN STITCH -->
+    <div class="material-modal-overlay" id="materialModal" hidden>
+        <section class="material-detail-box" role="dialog" aria-modal="true" aria-labelledby="materialTitle">
+
+            <!-- HEADER DETAIL -->
+            <header class="material-detail-header">
+                <div class="material-heading">
+                    <div class="material-badges">
+                        <span class="material-badge" id="materialType">
+                            Kuliah Teori Wajib
+                        </span>
+
+                        <span class="material-badge green" id="materialMeeting">
+                            ● Pertemuan Ke-8 (Hari Ini)
+                        </span>
+
+                        <span class="material-badge gray" id="materialCode">
+                            IF3110
+                        </span>
+                    </div>
+
+                    <h2 id="materialTitle">IF3110 — Kecerdasan Buatan</h2>
+
+                    <p class="material-meta">
+                        <span id="materialTime">◷ Selasa, 13:00–15:00 WIB</span>
+                        <span id="materialRoom">⌖ Ruang Lab R7602</span>
+                    </p>
+
+                    <p class="material-presence">
+                        ✓ Presensi SIAM: Otomatis
+                    </p>
+                </div>
+
+                <div class="material-lecturer">
+                    <div class="lecturer-avatar" id="materialLecturerAvatar">BR</div>
+
+                    <div>
+                        <strong id="materialLecturer">Dr. Eng. Ir. Budi</strong>
+                        <small>◉ Dosen AI Siap</small>
+                    </div>
+
+                    <button type="button" class="material-close" id="closeMaterial"
+                        aria-label="Tutup detail materi">×</button>
+                </div>
+            </header>
+
+            <!-- NAVIGASI TAB -->
+            <nav class="material-tabs" aria-label="Navigasi detail materi">
+                <button type="button" class="material-tab active" data-tab="overview">
+                    ♧ Materi &amp; Silabus RAG
+                </button>
+
+                <button type="button" class="material-tab" data-tab="notes">
+                    ▤ Catatan Kuliah Live Sync
+                </button>
+
+                <button type="button" class="material-tab" data-tab="assignments">
+                    ▤ Tugas &amp; Kuis
+                </button>
+
+                <button type="button" class="material-tab" data-tab="ai">
+                    ✧ Simulasi Tanya Dosen
+                </button>
+            </nav>
+
+            <!-- ISI DETAIL -->
+            <div class="material-detail-grid">
+
+                <!-- KOLOM KIRI -->
+                <div class="material-left-column">
+
+                    <!-- TOPIK -->
+                    <section class="material-topic-card">
+                        <div class="material-section-label">
+                            TOPIK SILABUS HARI INI (SESI 8)
+                        </div>
+
+                        <span class="material-version">Chromadb v0.4.22</span>
+
+                        <h3 class="material-topic-title" id="materialTopic">
+                            Transformer Architecture, Multi-Head Attention,
+                            &amp; Positional Encoding
+                        </h3>
+
+                        <p id="materialDescription">
+                            Membedah mekanisme Scaled Dot-Product Attention,
+                            representasi matriks Query, Key, Value, serta
+                            keunggulan komparatif terhadap arsitektur recurrent.
+                        </p>
+                    </section>
+
+                    <!-- BERKAS -->
+                    <section class="material-section">
+                        <div class="material-section-heading">
+                            <strong>▤ Berkas Kuliah Terindeks RAG</strong>
+                            <span class="material-status">
+                                100% Siap RAG • 184 Chunks
+                            </span>
+                        </div>
+
+                        <div id="materialFiles" class="material-files">
+                            <div class="material-file">
+                                <div class="file-icon purple">▣</div>
+
+                                <div class="file-info">
+                                    <strong>IF3110_Sesi08_Transformer_Attention.pptx</strong>
+                                    <small>
+                                        48 Halaman Slide • 86 Chunks • Embeddings:
+                                        text-embedding-3-small
+                                    </small>
+                                </div>
+
+                                <button type="button" class="file-action">
+                                    ◎ Pratinjau
+                                </button>
+                            </div>
+
+                            <div class="material-file">
+                                <div class="file-icon red">▤</div>
+
+                                <div class="file-info">
+                                    <strong>Diktat_AI_Bab7_SequenceModels.pdf</strong>
+                                    <small>
+                                        Bab 7 Hal 120–154 • 62 Chunks • Hybrid BM25+Vector
+                                    </small>
+                                </div>
+
+                                <button type="button" class="file-action">
+                                    ↓ Unduh
+                                </button>
+                            </div>
+
+                            <div class="material-file">
+                                <div class="file-icon purple">♫</div>
+
+                                <div class="file-info">
+                                    <strong>Audio_Transcript_Sesi07_Review.txt</strong>
+                                    <small>
+                                        Sinkron Lecture Listener • Whisper Large v3 • 36 Chunks
+                                    </small>
+                                </div>
+
+                                <button type="button" class="file-action">
+                                    Transkripsi AI
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- RINGKASAN MATERI -->
+                    <section class="material-summary-card">
+                        <h3>♧ Cuplikan Intisari (AI Quick Summary)</h3>
+
+                        <div id="materialSummary">
+                            <ul>
+                                <li>
+                                    <strong>Self-Attention:</strong>
+                                    Menghitung korelasi dinamis antar token tanpa
+                                    batasan jarak sekuensial.
+                                </li>
+                                <li>
+                                    <strong>Multi-Head:</strong>
+                                    Memberikan sejumlah representasi paralel
+                                    berdimensi berbeda.
+                                </li>
+                                <li>
+                                    <strong>Positional Encoding:</strong>
+                                    Menambahkan fungsi sinus dan kosinus agar
+                                    Transformer mengetahui posisi token.
+                                </li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <!-- TAB CATATAN -->
+
+                    <section class="material-tab-panel live-notes" id="panel-notes" hidden>
+                        <!-- Rekaman dan transkripsi -->
+                        <div class="ln-audio">
+                            <div class="ln-head">
+                                <div>
+                                    <span class="ln-eyebrow">● REKAMAN &amp; TRANSKRIPSI SESI LIVE TERAKHIR</span>
+                                    <h3 id="lnSessionTitle">
+                                        Pertemuan Ke-7: Sequence Modeling &amp; Attention Introduction
+                                    </h3>
+                                </div>
+
+                                <div class="ln-status">
+                                    <span class="ln-status-success">● Audio berhasil diproses</span>
+                                    <span>Sinkron ke ChromaDB Vektor</span>
+                                </div>
+                            </div>
+
+                            <div class="ln-player">
+                                <button type="button" id="lnPlay" aria-label="Putar audio">▶</button>
+
+                                <div class="ln-audio-info">
+                                    <strong>Audio Perkuliahan Sesi 07</strong>
+                                    <small>Audio Timestamped</small>
+                                    <span id="lnAudioTime">01:34:20 / 01:45:00</span>
+                                </div>
+
+                                <div class="ln-wave" aria-hidden="true">
+                                    ▂ ▅ ▃ ▇ ▄ ▆ ▂ ▇ ▅ ▃ ▆ ▂ ▄ ▇ ▃ ▅ ▂ ▆ ▄ ▇
+                                </div>
+
+                                <span class="ln-speed">1.25x</span>
+                            </div>
+
+                            <p class="ln-hint" id="lnAudioHint">
+                                File rekaman belum dihubungkan. Tampilan pemutar masih berupa demo.
+                            </p>
+                        </div>
+
+                        <div class="ln-grid">
+                            <!-- Kolom utama -->
+                            <div class="ln-main">
+                                <section class="ln-card">
+                                    <div class="ln-card-head">
+                                        <h4>▤ Catatan Cerdas Otomatis</h4>
+                                        <span class="ln-ai-badge">Ekstraksi AI</span>
+                                    </div>
+
+                                    <article class="ln-takeaway">
+                                        <div class="ln-take-head">
+                                            <h5>① Scaled Dot-Product Attention</h5>
+                                            <span>24:15</span>
+                                        </div>
+
+                                        <p>
+                                            Query berperan sebagai kata kunci pencarian, key sebagai label
+                                            informasi, dan value sebagai isi konten yang akan digunakan
+                                            oleh model.
+                                        </p>
+
+                                        <blockquote>
+                                            <div>
+                                                <strong>❞ KUTIPAN MATERI</strong>
+                                                <span>24:15–24:58</span>
+                                            </div>
+                                            Pembagian dengan akar d_k membantu menstabilkan nilai hasil
+                                            perkalian titik sebelum diterapkan fungsi softmax.
+                                        </blockquote>
+                                    </article>
+
+                                    <article class="ln-takeaway">
+                                        <div class="ln-take-head">
+                                            <h5>② Multi-Head Attention</h5>
+                                            <span>52:40</span>
+                                        </div>
+
+                                        <p>
+                                            Multi-Head Attention memungkinkan model memperhatikan beberapa
+                                            representasi hubungan secara paralel, sehingga informasi yang
+                                            dipelajari menjadi lebih beragam.
+                                        </p>
+                                    </article>
+                                </section>
+
+                                <!-- Catatan pribadi -->
+                                <section class="ln-card ln-student">
+                                    <div class="ln-card-head">
+                                        <h4>✎ Catatan Mahasiswa &amp; Bookmark</h4>
+                                        <span class="ln-muted">Catatan pribadi</span>
+                                    </div>
+
+                                    <div class="ln-bookmark">
+                                        <strong>★ Bookmark Saya</strong>
+                                        <p>
+                                            Ingat pelajari kembali rumus gradien softmax karena konsep ini
+                                            penting untuk memahami proses training model.
+                                        </p>
+                                        <button type="button" id="lnEditBookmark">
+                                            Tulis catatan
+                                        </button>
+                                    </div>
+
+                                    <label for="lnStudentNotes">Catatan tambahan</label>
+                                    <textarea id="lnStudentNotes" rows="5"
+                                        placeholder="Tulis catatan kuliahmu di sini..."></textarea>
+
+                                    <div class="ln-save-row">
+                                        <span id="lnSaveStatus" role="status">
+                                            Belum ada perubahan baru.
+                                        </span>
+
+                                        <button type="button" class="ln-primary" id="lnSave">
+                                            Simpan Catatan
+                                        </button>
+                                    </div>
+                                </section>
+                            </div>
+
+                            <!-- Sidebar -->
+                            <aside class="ln-side">
+                                <section class="ln-card">
+                                    <h4>⚡ Tindakan Cepat</h4>
+
+                                    <button type="button" class="ln-primary ln-full" id="lnOpenListener">
+                                        ◉ Buka Lecture Listener
+                                    </button>
+
+                                    <button type="button" class="ln-secondary" id="lnSendDocument">
+                                        ▤ Kirim ke Document Creator
+                                    </button>
+
+                                    <button type="button" class="ln-secondary" id="lnDownload">
+                                        ↓ Unduh Ringkasan (.txt)
+                                    </button>
+                                </section>
+
+                                <section class="ln-card ln-modules">
+                                    <div class="ln-module-title">
+                                        <span>SINKRONISASI MODUL</span>
+                                        <i aria-label="Status aktif"></i>
+                                    </div>
+
+                                    <div class="ln-module">
+                                        <span>◉ Lecture Listener</span>
+                                        <strong class="ln-green">Siap</strong>
+                                    </div>
+
+                                    <div class="ln-module">
+                                        <span>▤ RAG Vector Store</span>
+                                        <strong>Belum terhubung</strong>
+                                    </div>
+
+                                    <div class="ln-module">
+                                        <span>▣ Flashcard Generator</span>
+                                        <strong class="ln-green">Siap digunakan</strong>
+                                    </div>
+                                </section>
+
+                                <section class="ln-tip">
+                                    <strong>✦ Tips belajar</strong>
+                                    <p>
+                                        Gunakan timestamp pada materi untuk menandai bagian yang perlu
+                                        dipelajari ulang.
+                                    </p>
+                                </section>
+                            </aside>
+                        </div>
+                    </section>
+
+                    <!-- TAB TUGAS -->
+                    <section class="material-tab-panel" id="panel-assignments" hidden>
+                        <h3>Tugas dan Kuis</h3>
+
+                        <div class="material-assignment">
+                            <div>
+                                <strong id="assignmentTitle">
+                                    Tugas Eksplorasi Multi-Head Attention
+                                </strong>
+
+                                <p id="assignmentDeadline">
+                                    Kamis, 24 Okt 17:00 WIB
+                                </p>
+                            </div>
+
+                            <span class="material-badge">Informasi</span>
+                        </div>
+                    </section>
+
+                    <!-- TAB DOSEN AI -->
+                    <section class="material-tab-panel" id="panel-ai" hidden>
+                        <div class="material-ai-heading">
+                            <span>🤖</span>
+
+                            <div>
+                                <h3>Tanya Dokumen Kuliah (RAG)</h3>
+                                <p>Ajukan pertanyaan mengenai materi kuliah.</p>
+                            </div>
+                        </div>
+
+                        <div class="material-rag-card">
+                            <div class="material-rag-heading">
+                                <strong>✧ Jawaban RAG</strong>
+                                <span class="material-badge purple">Hybrid Search</span>
+                            </div>
+
+                            <form id="materialChatForm" class="material-question-form">
+                                <input type="text" id="materialChatInput"
+                                    placeholder="Jelaskan formula Multi-Head Attention" required>
+
+                                <button type="submit" aria-label="Kirim pertanyaan">
+                                    ▶
+                                </button>
+                            </form>
+
+                            <div class="material-answer">
+                                <strong>✧ Jawaban RAG (Similarity: 0.94):</strong>
+
+                                <div id="materialChatMessages" class="material-chat-messages">
+                                    <div class="material-chat-bubble">
+                                        MultiHead(Q,K,V) = Concat(head_1, ..., head_h) W^O
+                                    </div>
+                                </div>
+
+                                <small>⌁ Slide 08, Hlm 24 • Diktat AI Bab 7</small>
+                                <span class="material-verified">
+                                    ✓ Terverifikasi Silabus
+                                </span>
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+
+                <!-- KOLOM KANAN -->
+                <div class="material-right-column">
+
+                    <!-- TANYA DOKUMEN RAG -->
+                    <section class="material-rag-card">
+                        <div class="material-rag-heading">
+                            <div>
+                                <strong>⌕ Tanya Dokumen Kuliah (RAG)</strong>
+                                <small>Hybrid Search</small>
+                            </div>
+
+                            <span class="material-badge purple">Hybrid Search</span>
+                        </div>
+
+                        <form id="materialChatFormPreview" class="material-question-form">
+                            <input type="text" id="materialChatInputPreview"
+                                placeholder="Jelaskan formula Multi-Head Attention" required>
+
+                            <button type="submit" aria-label="Kirim pertanyaan">
+                                ▶
+                            </button>
+                        </form>
+
+                        <div class="material-answer">
+                            <strong>✧ Jawaban RAG (Similarity: 0.94):</strong>
+
+                            <p>
+                                MultiHead(Q,K,V) = Concat(head_1, ..., head_h) W^O
+                            </p>
+
+                            <small>⌁ Slide 08, Hlm 24 • Diktat AI Bab 7</small>
+
+                            <span class="material-verified">
+                                ✓ Terverifikasi Silabus
+                            </span>
+                        </div>
+
+                        <div class="material-suggestions">
+                            <button type="button">⚡ Apa beda encoder dan decoder?</button>
+                            <button type="button">⚡ Rumus Scaled Dot-Product</button>
+                        </div>
+                    </section>
+
+                    <!-- DEADLINE -->
+                    <section class="material-deadline-card">
+                        <div class="material-deadline-heading">
+                            <strong>◷ Tugas Terkait &amp; Deadline Aktif</strong>
+                            <span>H-2 Sisa Waktu</span>
+                        </div>
+
+                        <strong id="assignmentTitlePreview">
+                            Tugas Eksplorasi Multi-Head Attention
+                        </strong>
+
+                        <p>
+                            Implementasi PyTorch attention matrix dari awal
+                            tanpa pustaka Hugging Face.
+                        </p>
+
+                        <div class="material-deadline-time">
+                            <strong id="assignmentDeadlinePreview">
+                                Kamis, 24 Okt 17:00 WIB
+                            </strong>
+                            <span>Sinkron: Reminder System</span>
+                        </div>
+                    </section>
+
+                    <!-- INTEGRASI -->
+                    <section class="material-integrations">
+                        <small>INTEGRASI MODUL EKOSISTEM AKADEMIA</small>
+
+                        <button type="button" class="material-integration-primary">
+                            ▤ Buka Dokumen di RAG Assistant
+                        </button>
+
+                        <div class="material-integration-buttons">
+                            <button type="button">♫ Lecture Listener</button>
+                            <button type="button">✧ Dosen AI Chat</button>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+
+            <!-- FOOTER -->
+            <footer class="material-detail-footer">
+                <span>
+                    ☁ Terakhir sinkronisasi SIAM Web Scraper:
+                    Hari ini 08:30 WIB (Status 200 OK)
+                </span>
+
+                <div>
+                    <button type="button" id="closeMaterialFooter">
+                        Tutup
+                    </button>
+
+                    <button type="button" class="material-save-button" id="saveMaterialSummary">
+                        ▣ Simpan ke Rangkuman Ujian
+                    </button>
+                </div>
+            </footer>
+
+        </section>
+    </div>
+
+    <!-- NOTIFIKASI -->
+    <div class="scheduler-toast" id="schedulerToast" role="status"></div>
+
+</div>
+{% endblock %}

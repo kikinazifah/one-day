@@ -1,0 +1,131 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block title %} Reminder System — Akademia AI {% endblock %}
+
+{% block page_label %} Reminder System {% endblock %}
+
+{% block scripts %}
+<script src="{% static 'dashboard/reminder_system.js' %}" defer></script>
+{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'dashboard/reminder_system.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+    <div>
+        <span class="eyebrow"><span class="material-symbols-outlined">notifications_active</span> SMART
+            DEADLINE INTELLIGENCE</span>
+        <h1>Reminder System &amp; Smart Deadline Intelligence</h1>
+        <p>
+            Atur tenggat tugas dan pantau prioritas akademik dalam satu dashboard.
+        </p>
+    </div>
+    <span class="status-pill"><span class="live-dot"></span> Pengingat Aktif</span>
+</section>
+
+<div class="stats-grid">
+    <article class="stat-card">
+        <span class="stat-icon red-icon material-symbols-outlined">priority_high</span>
+        <p>Tugas Mendesak</p>
+        <strong id="urgentCount">2</strong>
+        <small>Perlu segera diperhatikan</small>
+    </article>
+    <article class="stat-card">
+        <span class="stat-icon purple-icon material-symbols-outlined">calendar_month</span>
+        <p>Total Tugas</p>
+        <strong id="totalCount">3</strong>
+        <small>Dalam daftar pengingat</small>
+    </article>
+    <article class="stat-card">
+        <span class="stat-icon green-icon material-symbols-outlined">task_alt</span>
+        <p>Tugas Selesai</p>
+        <strong id="doneCount">0</strong>
+        <small>Tugas yang ditandai selesai</small>
+    </article>
+</div>
+
+<div class="reminder-layout">
+    <section class="panel">
+        <div class="panel-heading">
+            <span class="panel-icon material-symbols-outlined">add_task</span>
+            <div>
+                <h2>Tambah Pengingat</h2>
+                <p>Masukkan detail tugas dan tenggat waktunya.</p>
+            </div>
+        </div>
+
+        <form id="reminderForm">
+            <label class="field-label" for="taskTitle">Nama Tugas</label>
+            <input class="form-control" id="taskTitle" placeholder="Contoh: Laporan praktikum" required />
+
+            <label class="field-label" for="taskSubject">Mata Kuliah</label>
+            <input class="form-control" id="taskSubject" placeholder="Nama mata kuliah" />
+
+            <label class="field-label" for="taskDeadline">Tanggal dan Waktu Tenggat</label>
+            <input class="form-control" id="taskDeadline" type="datetime-local" required />
+
+            <label class="field-label" for="taskPriority">Prioritas</label>
+            <select class="form-control" id="taskPriority">
+                <option value="Tinggi">Tinggi</option>
+                <option value="Sedang" selected>Sedang</option>
+                <option value="Rendah">Rendah</option>
+            </select>
+
+            <label class="field-label" for="taskNotes">Catatan</label>
+            <textarea class="form-control" id="taskNotes" placeholder="Catatan tambahan (opsional)"></textarea>
+
+            <button class="wide-primary" type="submit">
+                <span class="material-symbols-outlined">add</span> Simpan Pengingat
+            </button>
+        </form>
+    </section>
+
+    <section class="panel">
+        <div class="panel-heading">
+            <span class="panel-icon material-symbols-outlined">event_note</span>
+            <div>
+                <h2>Daftar Pengingat</h2>
+                <p>Kelola status tugas yang perlu diselesaikan.</p>
+            </div>
+        </div>
+        <div class="reminder-list" id="reminderList">
+            <article class="reminder-item">
+                <div class="reminder-item-top">
+                    <span class="badge red">Tinggi</span>
+                    <span class="reminder-date">Contoh</span>
+                </div>
+                <h3>Laporan Praktikum</h3>
+                <p>Rekayasa Perangkat Lunak</p>
+                <button class="small-outline" type="button" data-demo-done>
+                    Tandai Selesai
+                </button>
+            </article>
+            <article class="reminder-item">
+                <div class="reminder-item-top">
+                    <span class="badge blue">Sedang</span>
+                    <span class="reminder-date">Contoh</span>
+                </div>
+                <h3>Persiapan Presentasi</h3>
+                <p>Metodologi Penelitian</p>
+                <button class="small-outline" type="button" data-demo-done>
+                    Tandai Selesai
+                </button>
+            </article>
+            <article class="reminder-item">
+                <div class="reminder-item-top">
+                    <span class="badge green">Rendah</span>
+                    <span class="reminder-date">Contoh</span>
+                </div>
+                <h3>Membaca Materi</h3>
+                <p>Basis Data</p>
+                <button class="small-outline" type="button" data-demo-done>
+                    Tandai Selesai
+                </button>
+            </article>
+        </div>
+    </section>
+</div>
+{% endblock %}
