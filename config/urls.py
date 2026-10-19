@@ -16,11 +16,18 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from dashboard import views
+from dashboard import views, views_api
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    
+
+    # Endpoint JSON untuk halaman dashboard (jembatan ke backend FastAPI).
+    path('api/document/generate/', views_api.generate_document, name='api_document_generate'),
+    path('api/document/preview/', views_api.preview_document, name='api_document_preview'),
+    path('api/document/save/', views_api.save_document, name='api_document_save'),
+    path('api/document/download/<str:document_id>', views_api.download_document,
+         name='api_document_download'),
+
     path('', views.home, name='home'),
     path('document-creator/', views.document_creator, name='document_creator'),
     path('lecture-listener/', views.lecture_listener, name='lecture_listener'),

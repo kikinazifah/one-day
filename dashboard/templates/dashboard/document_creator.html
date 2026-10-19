@@ -1,9 +1,9 @@
 {% extends 'dashboard/base.html' %}
 {% load static %}
 
-{% block title %}RAG Document Assistant — Akademia AI{% endblock %}
+{% block title %}Document Creator — Akademia AI{% endblock %}
 
-{% block page_label %}RAG Document Assistant{% endblock %}
+{% block page_label %}Document Creator{% endblock %}
 
 {% block page_css %}
 <link rel="stylesheet" href="{% static 'dashboard/document_creator.css' %}">
@@ -35,6 +35,7 @@
         </div>
 
         <form id="documentForm">
+            {% csrf_token %}
             <label class="field-label" for="docType">Jenis Dokumen</label>
             <select id="docType" class="form-control">
                 <option value="Laporan akademik">Laporan akademik</option>
@@ -74,10 +75,11 @@
 
             <button class="wide-primary" type="submit">
                 <span class="material-symbols-outlined">auto_awesome</span>
-                Buat Dokumen
+                <span id="docSubmitLabel">Buat Dokumen</span>
             </button>
             <p class="form-note">
-                Pratinjau ini belum mengirim permintaan ke layanan AI.
+                Dokumen dibuat oleh layanan AI. Proses ini bisa memakan waktu
+                satu sampai tiga menit.
             </p>
         </form>
     </section>
@@ -95,9 +97,11 @@
             <h3>Belum Ada Dokumen</h3>
             <p>
                 Lengkapi formulir, lalu tekan tombol Buat Dokumen untuk melihat
-                ringkasan permintaanmu.
+                hasil dokumenmu.
             </p>
         </div>
     </section>
 </div>
+
+<div class="toast" id="toast" role="status"></div>
 {% endblock %}
