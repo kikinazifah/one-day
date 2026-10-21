@@ -65,6 +65,23 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# Catatan pairing - **tidak ada setelan WS di sisi Django**, dan itu
+# disengaja:
+#
+#   DJANGO_ALLOWED_HOSTS (sini)   -> boleh-tidaknya browser membuka halaman
+#   ALLOWED_WS_ORIGINS (backend)  -> boleh-tidaknya halaman itu membuka socket live
+#
+# Dua-duanya menjaga lompatan berbeda dan tidak связа otomatis, karena
+# keduanya hidup di repo berbeda: yang ini di dashboard, yang itu di
+# ``student-assistant/backend/.env``. Kalau hanya satu yang diisi,
+# gejalanya: "halaman dashboard terbuka, tapi semua rekaman live
+# ditolak server" - dan rekaman itu hilang.
+#
+# Jadi: setiap host non-localhost di DJANGO_ALLOWED_HOSTS **wajib** ikut
+# didaftarkan sebagai ALLOWED_WS_ORIGINS di .env backend FastAPI.
+# Backend menormalisasi nilainya sendiri, jadi bentuk "akademia.app"
+# vs "https://akademia.app" aman di sana.
+
 
 # Backend FastAPI (student-assistant) — dipakai dashboard sebagai BFF.
 # Default-nya sama dengan port yang dipakai run_api.bat.

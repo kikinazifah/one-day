@@ -1,15 +1,18 @@
 {% extends 'dashboard/base.html' %}
 {% load static %}
 
-{% block title %}RAG Document Assistant — Akademia AI{% endblock %}
+{% block title %}Lecture Listener — Akademia AI{% endblock %}
 
-{% block page_label %}RAG Document Assistant{% endblock %}
+{% block page_label %}Lecture Listener{% endblock %}
 
 {% block page_css %}
 <link rel="stylesheet" href="{% static 'dashboard/lecture_listener.css' %}">
 {% endblock %}
 
 {% block scripts %}
+<script src="{% static 'dashboard/lecture_capture.js' %}" defer></script>
+<script src="{% static 'dashboard/lecture_offline.js' %}" defer></script>
+<script src="{% static 'dashboard/lecture_ws.js' %}" defer></script>
 <script src="{% static 'dashboard/lecture_listener.js' %}" defer></script>
 {% endblock %}
 
@@ -24,15 +27,20 @@
     <span class="status-pill"><span class="live-dot"></span> Sistem Siap</span>
 </section>
 
+<form id="lectureForm" hidden>{% csrf_token %}</form>
+
 <div class="lecture-grid">
     <section class="panel recording-panel">
         <div class="panel-heading">
             <span class="panel-icon material-symbols-outlined">mic</span>
             <div>
                 <h2>Rekaman Perkuliahan</h2>
-                <p>Mulai sesi rekaman untuk simulasi transkripsi.</p>
+                <p>Mulai sesi rekaman untuk mentranskrip perkuliahan.</p>
             </div>
         </div>
+
+        <label class="field-label" for="lectureTitle">Nama Sesi</label>
+        <input class="form-control" id="lectureTitle" placeholder="Contoh: Perkuliahan Rekayasa Perangkat Lunak" />
 
         <div class="recording-visual">
             <div class="recording-circle">
@@ -45,13 +53,34 @@
                 <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
             </div>
             <button class="wide-primary" id="recordButton" type="button">
-                <span class="material-symbols-outlined">mic</span> Mulai Rekaman
+                <span class="material-symbols-outlined">mic</span> <span id="recordButtonLabel">Mulai Rekaman</span>
             </button>
-            <p class="form-note">Mode demo: tombol tidak merekam suara sungguhan.</p>
+            <p class="form-note" id="recordHint">
+                Rekaman memakai mikrofon browser dan diproses backend (Whisper).
+            </p>
+
+            <!--
+                Indikator live (FR-05). Dua hal yang perlu selalu terlihat:
+                apakah koneksi ke server hidup, dan berapa potongan yang masih
+                tersimpan lokal karena jaringan tidak ada.
+            -->
+            <div class="live-indicator" id="liveIndicator" hidden>
+                <span class="live-indicator-dot" id="liveIndicatorDot"></span>
+                <span class="live-indicator-text" id="liveIndicatorText">Menyiapkan live…</span>
+                <span class="live-indicator-buffer" id="liveIndicatorBuffer" hidden>
+                    <span class="material-symbols-outlined">cloud_off</span>
+                    <span id="liveBufferCount">0</span> potongan tersimpan
+                </span>
+            </div>
         </div>
 
-        <label class="field-label" for="lectureTitle">Nama Sesi</label>
-        <input class="form-control" id="lectureTitle" placeholder="Contoh: Perkuliahan Rekayasa Perangkat Lunak" />
+        <div class="upload-fallback" id="uploadFallback">
+            <label class="field-label" for="audioFileInput">Atau unggah berkas rekaman</label>
+            <input class="form-control" id="audioFileInput" type="file" accept="audio/*" />
+            <p class="form-note">
+                Dipakai kalau mikrofon tidak tersedia atau izin akses ditolak.
+            </p>
+        </div>
     </section>
 
     <section class="panel">
@@ -62,15 +91,62 @@
                 <p>Catatan atau transkrip sesi perkuliahan.</p>
             </div>
         </div>
+
+        <!--
+            Transkrip live (FR-05). Panel ini menampilkan segmen yang sudah
+            ditranskripsi worker **selama** rekaman berjalan — transkrip
+            penuh di bawah tetap dipakai setelah rekaman selesai.
+        -->
+        <div class="live-transcript" id="liveTranscript" hidden aria-live="polite">
+            <div class="live-transcript-heading">
+                <span class="material-symbols-outlined">graphic_eq</span>
+                <span>Transkrip langsung</span>
+                <span class="live-transcript-meta" id="liveTranscriptMeta"></span>
+            </div>
+            <div class="live-transcript-body" id="liveTranscriptSegments">
+                <p class="form-note">Menunggu potongan pertama…</p>
+            </div>
+        </div>
+
         <textarea class="form-control transcript-area" id="transcript"
-            placeholder="Ketik atau tempel transkrip perkuliahan di sini..."></textarea>
+            placeholder="Transkrip hasil rekaman akan tampil di sini..."></textarea>
+
+        <div class="transcript-segments" id="transcriptSegments" aria-live="polite">
+            <p class="form-note">Belum ada segmen transkrip.</p>
+        </div>
+
         <button class="wide-primary" id="summarizeButton" type="button">
-            <span class="material-symbols-outlined">auto_awesome</span> Buat Ringkasan
+            <span class="material-symbols-outlined">auto_awesome</span> <span id="summarizeLabel">Buat Ringkasan</span>
         </button>
         <div class="summary-box" id="lectureSummary">
             <h3>Ringkasan Materi</h3>
             <p>Ringkasan yang kamu buat akan ditampilkan di sini.</p>
         </div>
+
+        <!-- Ekspor transkrip + ringkasan ke dokumen (FR-05). -->
+        <button class="wide-primary" id="exportButton" type="button">
+            <span class="material-symbols-outlined">download</span> <span id="exportLabel">Ekspor ke Dokumen</span>
+        </button>
+        <p class="form-note" id="exportHint">
+            Ekspor memindahkan transkrip dan ringkasan ke Document Creator.
+        </p>
+
+        <!--
+            Ekspor ke berkas .docx sungguhan (FR-05, FR-17).
+
+            Berbeda dari tombol di atas — yang hasilnya Form Document
+            Creator — yang ini membuat file .docx di server dan
+            mengunduhnya langsung. Dokumennya juga ditempelkan ke mata
+            kuliah sesi rekaman, jadi bisa dicari lewat RAG seperti
+            dokumen lain.
+        -->
+        <button class="wide-primary" id="exportDocxButton" type="button">
+            <span class="material-symbols-outlined">picture_as_pdf</span>
+            <span id="exportDocxLabel">Ekspor .docx</span>
+        </button>
+        <p class="form-note" id="exportDocxHint">
+            Membuat berkas Word (.docx) berisi ringkasan dan transkrip.
+        </p>
     </section>
 </div>
 
@@ -79,9 +155,15 @@
         <span class="panel-icon material-symbols-outlined">history</span>
         <div>
             <h2>Riwayat Sesi</h2>
-            <p>Sesi yang dibuat pada halaman ini selama browser digunakan.</p>
+            <p>Sesi rekaman yang tersimpan di backend.</p>
         </div>
     </div>
-    <div id="sessionHistory" class="history-empty">Belum ada sesi rekaman.</div>
+    {# Placeholder. "Belum ada sesi rekaman." akan berbohong kalau ditulis
+       di sini: server tidak tahu isi riwayat, dan `loadSessions()` butuh
+       beberapa detik untuk menjawab. JS menggantinya dengan state yang
+       benar (memuat / gagal / memang kosong). #}
+    <div id="sessionHistory" class="history-empty">Memuat riwayat sesi...</div>
 </section>
+
+<div class="toast" id="toast" role="status"></div>
 {% endblock %}

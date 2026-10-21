@@ -27,8 +27,282 @@
   background: #f8fafc;
 }
 
+/* Fallback unggah berkas: disembunyikan sampai mikrofon tidak tersedia. */
+
+.upload-fallback {
+  display: none;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px dashed #dce2f2;
+  border-radius: 8px;
+  background: #fafaff;
+}
+
+.upload-fallback-visible {
+  display: block;
+}
+
+/* Segmen transkrip bertimestamp. */
+
+.transcript-segments {
+  max-height: 320px;
+  margin-top: 14px;
+  padding: 4px 12px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fafaff;
+}
+
+.transcript-segment {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.transcript-segment:last-child {
+  border-bottom: 0;
+}
+
+.transcript-time {
+  flex-shrink: 0;
+  min-width: 42px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #e9e7ff;
+  color: var(--primary-container);
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.transcript-text {
+  margin: 0;
+  color: #46536d;
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+/* Riwayat sesi: judul di kiri, meta di kanan, tombol hapus di ujung. */
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-row {
+  align-items: center;
+}
+
+/* Isi baris (judul + meta) tetap bisa menyusut, tombol hapus tidak. */
+.history-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.history-body > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.history-delete {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: #c0392b;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.history-delete:hover:not(:disabled) {
+  border-color: #c0392b;
+  background: #fdecea;
+}
+
+.history-delete:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
   .lecture-controls {
     flex-direction: column;
+  }
+}
+
+/* =====================================================
+   LIVE TRANSCRIPT (FR-05)
+   ===================================================== */
+
+/* Indikator koneksi + buffer offline. */
+
+/*
+ * Aturan `display` di sini menimpa atribut `hidden` — user-agent
+ * stylesheet cuma memberi `[hidden] { display: none }` dengan
+ * spesifisitas lebih rendah, jadi `display: flex` di bawah selalu
+ * menang. Akibatnya elemen yang seharusnya tersembunyi sampai rekaman
+ * berjalan tetap terlihat.
+ *
+ * Karena itu `[hidden]` harus di-rule eksplisit dengan `display: none`.
+ * Tanpa itu, `hidden` jadi tidak berguna di elemen mana pun yang punya
+ * aturan `display` sendiri.
+ */
+.live-indicator[hidden],
+.live-transcript[hidden],
+.live-indicator-buffer[hidden] {
+  display: none;
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.live-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9aa3b8;
+  flex-shrink: 0;
+}
+
+.live-indicator.is-live .live-indicator-dot {
+  background: #16a34a;
+  animation: live-pulse 1.8s ease-in-out infinite;
+}
+
+.live-indicator.is-offline .live-indicator-dot {
+  background: #d97706;
+}
+
+.live-indicator.is-error .live-indicator-dot {
+  background: var(--red);
+}
+
+.live-indicator-text {
+  font-weight: 500;
+}
+
+.live-indicator-buffer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.live-indicator-buffer .material-symbols-outlined {
+  font-size: 13px;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Panel transkrip parsial selama rekaman. */
+
+.live-transcript {
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.live-transcript-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-low);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.live-transcript-heading .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.live-transcript-meta {
+  margin-left: auto;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+.live-transcript-body {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+
+.live-transcript-line {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.live-transcript-time {
+  flex-shrink: 0;
+  min-width: 42px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  padding-top: 1px;
+}
+
+.live-transcript-text {
+  margin: 0;
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-indicator.is-live .live-indicator-dot {
+    animation: none;
   }
 }
