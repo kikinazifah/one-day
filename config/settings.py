@@ -81,6 +81,11 @@ ALLOWED_HOSTS = [
 # didaftarkan sebagai ALLOWED_WS_ORIGINS di .env backend FastAPI.
 # Backend menormalisasi nilainya sendiri, jadi bentuk "akademia.app"
 # vs "https://akademia.app" aman di sana.
+#
+# Catatan: ALLOWED_WS_ORIGINS yang diisi **menambah** localhost, bukan
+# menggantikannya (selama WS_ALLOW_LOCALHOST_ORIGINS di backend masih
+# true, yang itu defaultnya). Jadi menyalin .env produksi ke laptop dev
+# tidak mematikan rekaman live di http://127.0.0.1:8010.
 
 
 # Backend FastAPI (student-assistant) — dipakai dashboard sebagai BFF.
