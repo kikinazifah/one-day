@@ -1,59 +1,121 @@
-/* RAG ASSISTANT */
+/* RAG ASSISTANT — gaya khusus halaman ini.
+ *
+ * Mayoritas tampilan halaman ini memakai kelas yang sudah ada di
+ * `style.css` (`.panel`, `.search`, `.field-label`, `.form-control`,
+ * `.drop-zone`, `.file-row`, `.icon-button`, `.chat-messages`,
+ * `.assistant-message`, `.user-message`, `.chat-form`). File ini hanya
+ * menambahkan apa yang benar-benar tidak ada di sana.
+ *
+ * Aturan `.rag-container`, `.rag-messages`, `.rag-message`, dan
+ * `.rag-input-area` yang sebelumnya ada di sini **tidak dipakai elemen
+ * mana pun** — halaman ini memakai padanannya dari `style.css`. Sudah
+ * dihapus supaya tidak ada dua nama untuk satu tampilan.
+ */
 
-.rag-container {
+/* =====================================================
+   BARIS MATA KULIAH
+   ===================================================== */
+
+.rag-course-row {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 400px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  overflow: hidden;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
-.rag-messages {
+.rag-course-row .field-label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* =====================================================
+   KOTAK PENCARIAN
+   ===================================================== */
+
+/* `.search` dari style.css membawa max-width 440px — di panel ini kotak
+   pencarian perlu selebar panel, jadi batasnya dilepas di sini. */
+.rag-search {
+  max-width: none;
+  margin: 14px 0;
+}
+
+/* =====================================================
+   CHIP PERTANYAAN SIAP-PAKAI
+   ===================================================== */
+
+.rag-task-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.rag-chip {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #f8f9ff;
+  color: #66718a;
+  font-size: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.rag-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.rag-chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* =====================================================
+   DIALOG UBAH DOKUMEN (native <dialog>)
+   ===================================================== */
+
+/* Disalin dari `.task-edit-dialog` di `reminder_system.css` dengan prefix
+ * `rag-`. `reminder_system.css` **tidak** dimuat di halaman ini, jadi
+ * menyalin lebih aman daripada me-refactor `style.css` yang dipakai
+ * halaman Reminder yang sekarang bekerja. */
+.rag-rename-dialog {
+  width: min(520px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  background: #fff;
+  color: inherit;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.rag-rename-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.rag-rename-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px;
-  flex: 1;
-  overflow-y: auto;
+  padding: 22px;
 }
 
-.rag-message {
-  max-width: 85%;
-  padding: 14px 18px;
-  border-radius: 14px;
-  line-height: 1.6;
+.rag-rename-title {
+  margin: 0 0 14px;
+  font-size: 15px;
 }
 
-.rag-message.user {
-  align-self: flex-end;
-  background: #dcfce7;
+.rag-rename-form .field-label {
+  display: block;
+  margin-bottom: 6px;
 }
 
-.rag-message.assistant {
-  align-self: flex-start;
-  background: #f3f4f6;
+.rag-rename-form .form-control {
+  margin-bottom: 14px;
 }
 
-.rag-input-area {
+.rag-rename-actions {
   display: flex;
-  gap: 12px;
-  padding: 16px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.rag-input-area textarea {
-  flex: 1;
-  resize: vertical;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  padding: 12px;
-}
-
-@media (max-width: 768px) {
-  .rag-message {
-    max-width: 100%;
-  }
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
 }

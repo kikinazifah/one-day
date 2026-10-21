@@ -11,21 +11,68 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_dotenv(path: Path) -> None:
+    """Isi ``os.environ`` dari file .env — nilai yang sudah ada menang.
+
+    Django tidak punya pembaca .env bawaan dan paket ``python-dotenv`` belum
+    jadi dependensi. Variabel yang sudah diset di shell (atau di hosting)
+    harus tetap menang, jadi file hanya mengisi yang kosong.
+    """
+    if not path.exists():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_dotenv(BASE_DIR / '.env')
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-b3*1ci_282%va%=ijq)d1)1nb=v4s5w59m2o^$92=d2tuv4@s%'
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-b3*1ci_282%va%=ijq)d1)1nb=v4s5w59m2o^$92=d2tuv4@s%',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = _env_bool('DJANGO_DEBUG', True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+    if host.strip()
+]
+
+
+# Backend FastAPI (student-assistant) — dipakai dashboard sebagai BFF.
+# Default-nya sama dengan port yang dipakai run_api.bat.
+AKADEMIA_API_URL = os.environ.get(
+    'AKADEMIA_API_URL', 'http://127.0.0.1:8022/api/v1'
+)
+AKADEMIA_API_EMAIL = os.environ.get('AKADEMIA_API_EMAIL', '')
+AKADEMIA_API_PASSWORD = os.environ.get('AKADEMIA_API_PASSWORD', '')
 
 
 # Application definition
@@ -57,8 +104,48 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [],
-        'APP_DIRS': True,
+        # **Jangan pakai APP_DIRS saat DEBUG.**
+        #
+        # ``APP_DIRS: True`` memaksa Django memakai
+        # ``django.template.loaders.cached.Loader`` — loader yang menyimpan
+        # template hasil parse di memori proses dan **tidak** memeriksa
+        # ulang mtime file. Normalnya autoreloader (yang hidup kalau
+        # ``runserver`` TANPA ``--noreload``) memanggil ``loader.reset()``
+        # setiap file berubah, jadi cache-nya ikut segar.
+        #
+        # Tapi repo ini menjalankan Django dengan ``--noreload``
+        # (``start_stack.ps1``), jadi autoreloader tidak pernah hidup dan
+        # cache template **tidak pernah di-reset** selama proses berjalan.
+        # Akibatnya: mengedit ``dashboard/templates/dashboard/home.html``
+        # tidak berefek sampai proses Django di-restart. Gejalanya
+        # menyesatkan — file di disk sudah benar, tapi halaman yang
+        # dilayani masih versi lama; dan kalau versi lama itu memanggil
+        # modul JS yang belum dimuat, halamannya blank.
+        #
+        # Karena itu loader-nya ditulis eksplisit:
+        #   - DEBUG   → loader biasa (baca file tiap render, tanpa cache)
+        #   - produksi → ``cached.Loader`` (template ter-cache, render cepat)
+        #
+        # Daftar loader harus sama dengan yang dipakai ``APP_DIRS: True``,
+        # kalau tidak template di dalam app tidak ditemukan sama sekali.
+        'APP_DIRS': False,
         'OPTIONS': {
+            'loaders': (
+                [
+                    'django.template.loaders.filesystem.Loader',
+                    'django.template.loaders.app_directories.Loader',
+                ]
+                if DEBUG
+                else [
+                    (
+                        'django.template.loaders.cached.Loader',
+                        [
+                            'django.template.loaders.filesystem.Loader',
+                            'django.template.loaders.app_directories.Loader',
+                        ],
+                    ),
+                ]
+            ),
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',

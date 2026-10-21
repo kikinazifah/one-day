@@ -33,8 +33,8 @@
     <article class="stat-card">
         <span class="stat-icon green-icon material-symbols-outlined">database</span>
         <p>Vector Index</p>
-        <strong>Demo</strong>
-        <small>Database vektor belum terhubung</small>
+        <strong id="ragVectorCount">0</strong>
+        <small>Dokumen siap ditanyakan</small>
     </article>
     <article class="stat-card">
         <span class="stat-icon purple-icon material-symbols-outlined">question_answer</span>
@@ -50,17 +50,41 @@
             <span class="panel-icon material-symbols-outlined">upload_file</span>
             <div>
                 <h2>Dokumen Kuliah</h2>
-                <p>Pilih PDF atau TXT untuk menambahkannya ke daftar sesi.</p>
+                <p>Unggah berkas untuk mengindeksnya ke database vektor.</p>
             </div>
+        </div>
+
+        {% csrf_token %}
+
+        <div class="rag-course-row">
+            <div>
+                <label class="field-label" for="ragCourse">Mata Kuliah</label>
+                <select class="form-control" id="ragCourse">
+                    <option value="">Semua mata kuliah</option>
+                </select>
+            </div>
+            <p class="form-note">
+                Kosongkan untuk membiarkan sistem menebak sendiri dari isi dokumen.
+                Tag bisa dikoreksi kapan saja lewat tombol pensil.
+            </p>
         </div>
 
         <label class="drop-zone" for="ragFiles">
             <span class="material-symbols-outlined">cloud_upload</span>
             <strong>Unggah dokumen</strong>
-            <span>Pilih file PDF atau TXT dari komputer</span>
+            <!-- Teks & atribut accept diisi dari daftar format backend
+                 (GET /api/rag/formats/). Menuliskannya di sini berarti
+                 menyalin sumber kebenaran ke tempat ketiga — dan pasti
+                 akan basi begitu backend menambah format baru. -->
+            <span id="ragFormatHint">PDF, DOCX, PPTX, XLSX, TXT, MD, CSV, JSON, HTML, dan lain-lain</span>
             <span class="drop-button">Pilih Berkas</span>
-            <input id="ragFiles" type="file" accept=".pdf,.txt,application/pdf,text/plain" multiple />
+            <input id="ragFiles" type="file" multiple />
         </label>
+
+        <div class="search rag-search">
+            <span class="material-symbols-outlined">search</span>
+            <input id="ragSearch" type="search" placeholder="Cari nama atau isi dokumen..." />
+        </div>
 
         <div class="file-list" id="ragFileList">
             <div class="empty-state compact-empty">
@@ -68,8 +92,10 @@
                 <p>Belum ada dokumen yang dipilih.</p>
             </div>
         </div>
+        <p class="form-note" id="ragSearchNote" hidden></p>
         <p class="form-note">
-            Demo antarmuka: file belum diunggah atau diproses oleh server.
+            Maksimal 10 MB per berkas. Pengindeksan berjalan di latar belakang —
+            dokumen siap ditanyakan setelah statusnya "Terindeks".
         </p>
     </section>
 
@@ -88,11 +114,18 @@
                 <div>
                     <strong>Akademia AI</strong>
                     <p>
-                        Halo! Pilih dokumen dan tuliskan pertanyaan. Saat ini jawaban masih
-                        berupa demo antarmuka.
+                        Halo! Unggah dokumenmu, lalu tuliskan pertanyaan. Aku akan mencari
+                        potongan yang paling relevan dan menjawab berdasarkan isi
+                        dokumen tersebut.
                     </p>
                 </div>
             </div>
+        </div>
+
+        <div class="rag-task-chips" id="ragTaskChips">
+            <button type="button" class="rag-chip">Tugas apa saja yang belum selesai?</button>
+            <button type="button" class="rag-chip">Kapan tenggat tugas berikutnya?</button>
+            <button type="button" class="rag-chip">Apakah ada tugas yang terlambat?</button>
         </div>
 
         <form class="chat-form" id="ragQuestionForm">
@@ -102,8 +135,33 @@
             </button>
         </form>
         <p class="form-note">
-            Jawaban berbasis AI memerlukan backend RAG dan model bahasa.
+            Jawaban disertai rujukan dokumen sumber. Jika informasinya tidak ada di
+            dokumenmu, aku akan menyatakannya.
         </p>
     </section>
 </div>
+
+<!-- Dialog ubah dokumen. Memakai <dialog> native: fokus otomatis, Escape
+     untuk menutup, dan keyboard bisa navigasi — tanpa menulis state modal
+     sendiri. -->
+<dialog class="rag-rename-dialog" id="ragRenameDialog">
+    <form method="dialog" class="rag-rename-form" id="ragRenameForm">
+        <h2 class="rag-rename-title">Ubah Dokumen</h2>
+
+        <label class="field-label" for="ragRenameName">Nama dokumen</label>
+        <input class="form-control" id="ragRenameName" maxlength="500" required />
+
+        <label class="field-label" for="ragRenameCourse">Mata Kuliah</label>
+        <select class="form-control" id="ragRenameCourse">
+            <option value="">Tanpa mata kuliah</option>
+        </select>
+
+        <p class="form-note" id="ragRenameError" hidden></p>
+
+        <div class="rag-rename-actions">
+            <button type="button" class="small-outline" id="ragRenameCancel">Batal</button>
+            <button type="submit" class="wide-primary" id="ragRenameSave">Simpan</button>
+        </div>
+    </form>
+</dialog>
 {% endblock %}
