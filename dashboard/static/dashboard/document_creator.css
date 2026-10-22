@@ -1,105 +1,693 @@
-/* DOCUMENT CREATOR */
+/* DOCUMENT CREATOR — ruang chat
+ *
+ * Dua bagian:
+ *
+ * 1. Keluarga ``ai-*`` — port dari GenOffice (Electron), file
+ *    ``apps/docs/src/renderer/styles.css``. Dipakai untuk chat, markdown,
+ *    dan aktivitas tool, supaya output AI-nya terasa sama dengan
+ *    aplikasi aslinya, bukan seperti form yang dibuat-buat.
+ *
+ *    Yang dipindahkan: bentuk, jarak, animasi. Yang tidak: warnanya.
+ *    GenOffice memakai token ``--color-*``-nya sendiri; di sini token itu
+ *    dipetakan ke palet dashboard (``--surface``, ``--muted``, ``--border``)
+ *    supaya chat menyatu dengan halaman yang lain.
+ *
+ * 2. Panel "Struktur Dokumen" — daftar blok, edit per blok, hasil QC.
+ *    Sengaja terpisah dari chat: chat untuk bahasa alami, panel untuk
+ *    kontrol presisi.
+ */
 
-/* Klassen lama (skema kartu) — dipakai halaman lama, bukan panel versi ini. */
-.document-layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+/* =========================================================================
+   1. KELUARGA ai-* (dari GenOffice)
+   ========================================================================= */
+
+/* --- Area pesan --- */
+
+.ai-chat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  /* Jarak seragam 16px antar blok; tiap pesan tidak membawa margin. */
+  gap: 16px;
+  min-height: 260px;
+  max-height: 520px;
+  padding: 20px 4px;
+  overflow-y: auto;
 }
 
-.document-form,
-.document-preview {
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 16px;
-  padding: 24px;
+.ai-chat-empty {
+  margin: 28px 0 0;
+  text-align: center;
 }
 
-.document-form input,
-.document-form select,
-.document-form textarea {
-  width: 100%;
-  padding: 12px;
-  margin-top: 8px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  box-sizing: border-box;
+/* ``[hidden]`` dari browser kalah dari aturan author yang menetapkan
+ * ``display`` — jadi di sini harus ditegaskan ulang. Tanpa ini, keadaan
+ * kosong tetap terlihat di atas percakapan yang sudah berjalan. */
+.ai-chat-empty[hidden] {
+  display: none;
 }
 
-.document-form textarea {
-  min-height: 120px;
-  resize: vertical;
-}
-
-.document-preview {
-  min-height: 300px;
-}
-
-/* --- Hasil generate (isi panel pratinjau) --- */
-
-.preview-result .badge {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 10px;
-  padding: 4px 8px;
-  border-radius: 5px;
-  font-size: 9px;
+.ai-chat-empty-title {
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-size: 13px;
   font-weight: 800;
 }
 
-.preview-actions {
+.ai-chat-empty-body {
+  max-width: 340px;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+/* Contoh prompt yang bisa diklik: pil-outline, radius penuh. */
+.ai-starter-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
   margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid #e3e6f2;
 }
 
-.preview-actions .compact-control {
-  width: auto;
-  min-height: 34px;
-  min-width: 92px;
-  padding: 6px 10px;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.ghost-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 7px 10px;
+.ai-starter {
+  padding: 8px 16px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 30px;
   background: #fff;
   color: #35425b;
   font-size: 10px;
-  font-weight: 800;
-  white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s;
+  line-height: 1.4;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
 }
 
-.ghost-button:hover:not(:disabled) {
+.ai-starter:hover:not(:disabled) {
   border-color: #c3cbe8;
   background: var(--surface-low);
 }
 
-.ghost-button .material-symbols-outlined {
-  font-size: 15px;
+.ai-starter:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
-.ghost-button:disabled {
+.ai-starter:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.preview-actions .button-primary:disabled {
-  opacity: 0.5;
+/* --- Pesan --- */
+
+/*
+ * Pesan user = pil abu-abu; pesan assistant = teks polos tanpa gelembung.
+ * Ini memang pilihan GenOffice: balasan AI dibaca sebagai bagian dari
+ * dokumen, bukan sebagai obrolan dalam kotak.
+ */
+.ai-msg {
+  position: relative;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-msg-user {
+  align-self: flex-end;
+  max-width: 80%;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: var(--surface-low);
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+.ai-msg-assistant {
+  align-self: stretch;
+  max-width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #35425b;
+}
+
+.ai-msg-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--red);
+  border-radius: 4px;
+  background: #fff2f2;
+  color: #9c1c1c;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+/* --- Markdown di dalam balasan --- */
+
+.ai-md {
+  white-space: normal;
+}
+
+.ai-md p,
+.ai-md ul,
+.ai-md ol {
+  margin: 0 0 12px;
+}
+
+.ai-md :last-child {
+  margin-bottom: 0;
+}
+
+/* Paragraf kosong akan memakan 12px margin sendirian — dan teks yang
+   masih mengalir memang sering menyisakan paragraf kosong. */
+.ai-md p:empty {
+  display: none;
+}
+
+.ai-md ul,
+.ai-md ol {
+  margin-bottom: 14px;
+  padding-left: 18px;
+}
+
+.ai-md li {
+  margin-left: 14px;
+  line-height: 1.7;
+}
+
+.ai-md .ai-md-h {
+  margin: 16px 0 6px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.ai-md .ai-md-h:first-child {
+  margin-top: 0;
+}
+
+/* Kode sebaris: chip abu-abu netral (bukan merah), 2px lebih kecil
+   daripada teks badan. */
+.ai-md code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface-low);
+  color: #58657d;
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Tautan navigasi internal (dari ``nav``) — satu-satunya tautan yang
+   diklik. Tautan lain tetap literal, sama seperti di GenOffice. */
+.ai-md .ai-md-nav {
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* --- Indikator "sedang berpikir" --- */
+
+.ai-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.ai-typing-dots {
+  display: flex;
+  gap: 3px;
+  height: 8px;
+}
+
+.ai-typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--primary-container);
+  animation: ai-dot-pulse 1.2s infinite ease-in-out;
+}
+
+.ai-typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.ai-typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes ai-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --- Kelompok aktivitas tool ("Bekerja · N langkah") --- */
+
+.ai-work-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 10px;
+}
+
+.ai-msg-assistant .ai-work-group:first-child,
+.ai-work-group:only-child {
+  margin-top: 0;
+}
+
+.ai-work-group-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.ai-work-group-summary:hover {
+  color: #58657d;
+}
+
+.ai-work-group-summary:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.ai-work-group-summary.running {
+  color: #58657d;
+}
+
+.ai-work-group-summary.running .ai-work-group-label {
+  animation: ai-summary-pulse 1500ms linear infinite;
+}
+
+@keyframes ai-summary-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.ai-work-group-body {
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-work-group-body.open {
+  grid-template-rows: 1fr;
+}
+
+.ai-work-group-body-inner {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 0 0 8px;
+  transition: padding 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-work-group-body.open .ai-work-group-body-inner {
+  padding: 4px 0 6px 8px;
+}
+
+/* --- Baris langkah --- */
+
+.ai-step-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  color: var(--muted);
+  animation: ai-row-ease-in 320ms ease-out;
+}
+
+.ai-step-row:not(:last-child) {
+  padding-bottom: 12px;
+}
+
+/* Garis penghubung antar langkah. */
+.ai-step-row:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 26px;
+  bottom: -2px;
+  left: 9px;
+  width: 1px;
+  background: var(--border);
+}
+
+.ai-step-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.ai-step-icon.done {
+  color: var(--green);
+}
+
+.ai-step-icon.error {
+  color: var(--red);
+}
+
+.ai-step-icon.running {
+  animation: ai-hourglass-flip 1.8s ease-in-out infinite;
+}
+
+@keyframes ai-hourglass-flip {
+  0%,
+  12% {
+    transform: rotate(0);
+  }
+  44%,
+  56% {
+    transform: rotate(180deg);
+  }
+  88%,
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-step-content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 1px;
+}
+
+.ai-step-title {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #58657d;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.ai-step-title.clickable {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.ai-step-title.clickable:hover {
+  color: var(--primary);
+}
+
+.ai-step-title.clickable:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.ai-step-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* Output tool: kartu abu-abu, font mono, tinggi dibatasi. */
+.ai-tool-output {
+  width: 100%;
+  max-height: 300px;
+  overflow-y: auto;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-low);
+  box-sizing: border-box;
+  color: #35425b;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 9px;
+}
+
+.ai-tool-output-pre {
+  padding: 10px 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Spinner dua titik di header grup yang sedang berjalan. */
+.ai-tool-chip-spinner {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  height: 10px;
+}
+
+.ai-tool-chip-spinner::before,
+.ai-tool-chip-spinner::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary-container);
+}
+
+.ai-tool-chip-spinner::before {
+  animation: ai-tool-dot-grow 2s infinite;
+}
+
+.ai-tool-chip-spinner::after {
+  animation: ai-tool-dot-shrink 2s infinite;
+}
+
+@keyframes ai-tool-dot-grow {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.333);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ai-tool-dot-shrink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.333);
+  }
+}
+
+/* Panah pembuka grup. */
+.ai-tool-chip-caret {
+  display: inline-block;
+  margin-left: 2px;
+  opacity: 0.7;
+  transition: transform 0.15s;
+}
+
+.ai-tool-chip-caret.open {
+  transform: rotate(90deg);
+}
+
+@keyframes ai-row-ease-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Kursor berkedip di ujung teks yang masih mengalir. */
+.ai-msg-streaming .ai-md > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 1em;
+  margin-left: 2px;
+  border-radius: 1px;
+  background: #58657d;
+  vertical-align: text-bottom;
+  animation: ai-caret-blink 900ms steps(1, end) infinite;
+}
+
+@keyframes ai-caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-step-row,
+  .ai-step-icon.running,
+  .ai-work-group-summary.running .ai-work-group-label,
+  .ai-typing-dot,
+  .ai-tool-chip-spinner::before,
+  .ai-tool-chip-spinner::after,
+  .ai-msg-streaming .ai-md > :last-child::after {
+    animation: none;
+  }
+}
+
+/* =========================================================================
+   2. RUANG CHAT
+   ========================================================================= */
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
+}
+
+/* Panel heading memakai flex; tombol di kanan didorong ke ujung. */
+.block-panel-actions {
+  margin-left: auto;
+}
+
+/* Composer. Textarea tumbuh mengikuti isinya, jadi tetap satu baris
+   sampai perlu lebih. */
+.chat-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px;
+  border: 1px solid #d5daf0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.chat-form:focus-within {
+  border-color: #8078ef;
+  box-shadow: 0 0 0 3px #4f46e514;
+}
+
+.chat-form textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 160px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.chat-form button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.chat-form button:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
+}
+
+.chat-form button .material-symbols-outlined {
+  font-size: 17px;
+}
+
+.chat-form button:hover:not(:disabled) {
+  background: var(--primary-container);
+}
+
+.chat-panel .form-note {
+  margin: 8px 0 0;
+}
+
+/* =========================================================================
+   3. KARTU DOKUMEN + PRATINJAU
+   ========================================================================= */
+
+.document-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.document-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8f9fd;
+}
+
+.document-card[hidden] {
+  display: none;
+}
+
+.document-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.document-card-head h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.document-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 /* --- Pratinjau hasil render (iframe) --- */
@@ -117,6 +705,9 @@
   width: 100%;
   height: 520px;
   border: 0;
+  /* Dokumen A4 lebih lebar dari panel dashboard, jadi pratinjau bisa
+     digeser horizontal — tanpa ini teks jadi terpotong di tepi. */
+  background: #f4f5fa;
 }
 
 .preview-frame-wrap .form-note {
@@ -125,29 +716,305 @@
   border-top: 1px solid #e3e6f2;
 }
 
-/* --- Status proses --- */
-
-.material-symbols-outlined.spin {
-  animation: doc-spin 1.1s linear infinite;
+.stale-note {
+  color: #8a6d00;
 }
 
-@keyframes doc-spin {
-  to {
-    transform: rotate(360deg);
+/* =========================================================================
+   4. PANEL "STRUKTUR DOKUMEN"
+   ========================================================================= */
+
+.block-panel {
+  margin-top: 16px;
+}
+
+.block-panel[hidden] {
+  display: none;
+}
+
+.block-panel.busy .block-list-wrap {
+  opacity: 0.55;
+}
+
+.block-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.block-list-wrap {
+  min-width: 0;
+  max-height: 620px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.block-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.block-row {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.block-row:hover {
+  border-color: #c3cbe8;
+}
+
+.block-row.protected {
+  background: #f8f9fd;
+}
+
+.block-row-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.block-index {
+  min-width: 22px;
+  color: #969db0;
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.block-type {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #e5e8ff;
+  color: #4238bc;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.block-row.protected .block-type {
+  background: #eef0f5;
+  color: #66718a;
+}
+
+.block-lock {
+  margin-left: auto;
+  color: #969db0;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.block-text {
+  margin: 7px 0 0;
+  color: #35425b;
+  font-size: 11px;
+  line-height: 1.55;
+  /* Teks panjang dipotong supaya satu blok tidak mengambil seluruh layar;
+     isi lengkapnya terlihat di modal edit. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.block-text.muted {
+  color: #969db0;
+  font-style: italic;
+}
+
+.block-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #eef0f8;
+}
+
+.block-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #fff;
+  color: #66718a;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.block-icon:hover:not(:disabled) {
+  border-color: #c3cbe8;
+  background: var(--surface-low);
+  color: var(--primary);
+}
+
+.block-icon:focus-visible,
+.block-level:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.block-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.block-icon.danger:hover:not(:disabled) {
+  border-color: #f3c4c4;
+  background: #fff2f2;
+  color: var(--red);
+}
+
+.block-icon .material-symbols-outlined {
+  font-size: 15px;
+}
+
+.block-level {
+  width: auto;
+  min-height: 26px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+/* --- Sisi hasil pemeriksaan (QC) --- */
+
+.block-side {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8f9fd;
+}
+
+.block-side-head h3 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.block-side-head p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.qc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.qc-item {
+  padding: 7px 9px;
+  border-left: 3px solid #d8a800;
+  border-radius: 4px;
+  background: #fff9e0;
+  color: #6b5200;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.qc-item.error {
+  border-left-color: var(--red);
+  background: #fff2f2;
+  color: #9c1c1c;
+}
+
+/* --- Modal edit teks --- */
+
+.block-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 65%);
+  backdrop-filter: blur(5px);
+}
+
+.block-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 25px 80px rgb(15 23 42 / 25%);
+}
+
+.block-modal h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.block-modal textarea {
+  min-height: 140px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.block-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* =========================================================================
+   5. RESPONSIF
+   ========================================================================= */
+
+@media (max-width: 1050px) {
+  .chat-panel {
+    min-height: 460px;
   }
 }
 
-.wide-primary:disabled {
-  opacity: 0.7;
-  cursor: progress;
-}
-
 @media (max-width: 768px) {
-  .document-layout {
-    grid-template-columns: 1fr;
+  .ai-chat {
+    max-height: 420px;
+  }
+
+  .ai-msg-user {
+    max-width: 92%;
   }
 
   .preview-frame {
     height: 380px;
+  }
+
+  .block-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .block-list-wrap {
+    max-height: none;
+  }
+
+  .block-modal-overlay {
+    padding: 12px;
   }
 }

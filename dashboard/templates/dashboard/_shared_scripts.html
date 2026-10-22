@@ -1,0 +1,54 @@
+{% load static %}
+{% comment %}
+   Script bersama untuk seluruh halaman dashboard.
+
+   Ini satu-satunya tempat daftar script bersama ditulis. JANGAN menyalin
+   daftar ini ke template lain.
+
+   Kenapa harus satu tempat: modul yang lupa dimuat di satu halaman bukan
+   error kecil — error itu mencederai seluruh handler DOMContentLoaded
+   halaman itu, jadi panel, badge, dan profil ikut mati. Duplikasi daftar
+   berarti "tambah modul baru" harus remember dua template; lupa satu =
+   halaman blank.
+
+   Urutannya mengikuti dependensi:
+
+   1. api_fallback.js -> cadangan; hanya aktif kalau api.js gagal dimuat.
+                       Harus SEBELUM api.js — kalau terbalik, fallback
+                       akan meng-override modul utama (lihat komentar
+                       di file itu)
+   2. api.js        -> mendefinisikan window.AkademiaApi (dipakai semua halaman)
+   3. task_state_fallback.js -> cadangan; hanya aktif kalau task_state.js
+                       gagal dimuat (lihat komentar di file itu)
+   4. task_state.js -> mendefinisikan window.AkademiaTaskState (predicate
+                       status tugas) — harus sebelum script yang memakainya
+   5. datetime_utils_fallback.js -> cadangan; hanya aktif kalau
+                       datetime_utils.js gagal dimuat
+   6. datetime_utils.js -> mendefinisikan window.AkademiaDateTime (helper
+                       tanggal/waktu) — harus sebelum script yang memakainya
+   7. reminder_badge.js -> badge "mendesak" di sidebar; satu writer untuk
+                       seluruh halaman
+   8. notifications.js -> panel notifikasi (lonceng di topbar)
+   9. script.js     -> profil; memakai AcademiaApi
+
+   Script khusus halaman dimuat terpisah: lewat block "scripts" di
+   base.html, atau tag script sendiri di home.html.
+
+   Semuanya memakai defer, jadi eksekusinya berurutan mengikuti urutan tag
+   di bawah dan baru jalan setelah parsing HTML selesai.
+
+   CATATAN: blok komentar multi-baris harus pakai tag "comment", bukan
+   tag {# ... #}. Tag kurung-kurung pagar hanya berlaku untuk satu baris —
+   kalau bloknya membentang beberapa baris, Django memperlakukannya sebagai
+   teks biasa dan seluruh isinya bocor ke HTML yang dirender (tampil di
+   layar sebagai teks, bukan komentar).
+{% endcomment %}
+<script src="{% static 'dashboard/api_fallback.js' %}" defer></script>
+<script src="{% static 'dashboard/api.js' %}" defer></script>
+<script src="{% static 'dashboard/task_state_fallback.js' %}" defer></script>
+<script src="{% static 'dashboard/task_state.js' %}" defer></script>
+<script src="{% static 'dashboard/datetime_utils_fallback.js' %}" defer></script>
+<script src="{% static 'dashboard/datetime_utils.js' %}" defer></script>
+<script src="{% static 'dashboard/reminder_badge.js' %}" defer></script>
+<script src="{% static 'dashboard/notifications.js' %}" defer></script>
+<script src="{% static 'dashboard/script.js' %}" defer></script>

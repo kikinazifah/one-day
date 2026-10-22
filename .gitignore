@@ -17,6 +17,22 @@ __pycache__/
 # Database lokal
 db.sqlite3
 db.sqlite3-journal
+# File WAL/SHM ikut database — SQLite menulisnya saat ada transaksi
+# yang belum di-checkpoint.
+*-wal
+*-shm
+
+# Vector store Chroma — salinan lokal dari data yang disimpan backend.
+# Yang jadi sumber kebenaran ada di backend, bukan di sini.
+chroma_db/
+
+# Artefak backend yang pernah muncul di folder ini: backend yang dijalankan
+# dari CWD yang salah membuat dev.db kosong di sini. Path backend sudah
+# di-anchor ke foldernya sendiri, jadi file ini tidak akan muncul lagi.
+dev.db
+dev.db-shm
+dev.db-wal
+backend_api.log
 
 # File upload dan media lokal (opsional)
 media/
@@ -27,6 +43,42 @@ staticfiles/
 # IDE dan editor
 .vscode/
 .idea/
+
+# Sisa hasil uji manual (berisi token API — jangan di-commit)
+openapi.json
+openapi_8022.json
+raglogin.json
+ragtoken.txt
+sesion
+
+# Log server lokal
+*.log
+
+# Catatan hasil kerja lokal
+laporan*.txt
+
+# Output run verifikasi — hasil cetak, bukan kontrak. Isinya cuma
+# ringkasan PASS/FAIL, tapi tetap artefak lokal satu mesin: nama
+# filenya berisi sisa percobaan dan tidak pernah dirujuk dokumen.
+# Skripnya sendiri (probe_*.py, probe_*.js, verify_*.py) TIDAK
+# di-ignore — file-file itu adalah kontrak verifikasi yang dirujuk
+# README dan docs/, jadi harus ikut ter-track.
+*.out
+audit_exit*.txt
+bff_final.txt
+r_exit.txt
+vb_final.txt
+
+# Kunci eksekusi skrip verifikasi (`verify_lock.js`). File ini dibuat
+# saat sebuah skrip sedang jalan dan dihapus lagi setelah selesai —
+# tapi kalau prosesnya dibunuh, file-nya tertinggal.
+.verify-lock-*.lock
+
+# Folder kunci eksekusi (satu file per pemakai kunci).
+.verify-locks/
+
+# Tangkapan layar & hasil generate lokal
+screenshots/
 
 # Sistem operasi
 .DS_Store

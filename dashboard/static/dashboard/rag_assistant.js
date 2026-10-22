@@ -14,6 +14,7 @@
  *   POST /api/rag/chat/sessions/create/  → buat sesi percakapan
  *   GET  /api/rag/chat/<id>/             → riwayat percakapan
  *   POST /api/rag/chat/<id>/message/     → tanya-jawab yang tersimpan
+ *   DELETE /api/rag/chat/<id>/delete/    → hapus sesi percakapan
  *
  * Alur unggah: pilih berkas → POST /upload/ → backend mulai indexing di
  * background dan membalas status ``uploaded``. Browser lalu polling
@@ -40,8 +41,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const renameCancel = document.getElementById("ragRenameCancel");
   const taskChips = document.getElementById("ragTaskChips");
   const formatHint = document.getElementById("ragFormatHint");
+  const clearChatButton = document.getElementById("ragClearChat");
 
   if (!api) return;
+
+  // Sapaan pembuka yang ada di template (statis). Disalin di sini
+  // supaya bisa dikembalikan setelah riwayat dihapus — kalau tidak,
+  // panel chat jadi kosong total tanpa penjelasan.
+  //
+  // `innerHTML` (bukan `replaceChildren`) dipakai karena isinya HTML
+  // statis dari template milik kita sendiri, bukan input pengguna.
+  const greetingMarkup = messages ? messages.innerHTML : "";
 
   // Format yang bisa diindeks backend.
   //
@@ -913,6 +923,15 @@ document.addEventListener("DOMContentLoaded", () => {
       sessionChecked = true;
       sessionStorage.setItem("akademia.ragSessionId", chatSessionId);
 
+      // Sesi baru dibuat → tombol "hapus riwayat" jadi punya target.
+      //
+      // Dipanggil di sini, bukan hanya di dalam `syncClearButton()` yang
+      // dipanggil sekali di awal: pada halaman yang di-refresh, sesi
+      // **sudah ada** (disimpan di ``sessionStorage``), jadi taksonya
+      // sudah tampil sejak awal — tanpa perlu menunggu pertanyaan
+      // pertama.
+      syncClearButton();
+
       return chatSessionId;
     })();
 
@@ -1055,6 +1074,70 @@ document.addEventListener("DOMContentLoaded", () => {
       if (input) input.value = question;
 
       askQuestion(question);
+    });
+  }
+
+  // =====================================================
+  // HAPUS RIWAYAT PERCAKAPAN
+  // =====================================================
+
+  // Tombol hanya tampil kalau ada sesi yang bisa dihapus. Sesi dibuat
+  // backend saat pertanyaan pertama dikirim, jadi sebelum itu tombolnya
+  // tidak punya apa-apa untuk dihapus.
+  function syncClearButton() {
+    if (!clearChatButton) return;
+    clearChatButton.hidden = !chatSessionId;
+  }
+
+  syncClearButton();
+
+  if (clearChatButton) {
+    clearChatButton.addEventListener("click", async () => {
+      if (!chatSessionId) return;
+
+      // Konfirmasi dulu: menghapus sesi tidak bisa dibatalkan, dan
+      // "hapus" tanpa konfirmasi sering salah kena karena letaknya
+      // di panel yang sama dengan tombol kirim.
+      if (!window.confirm("Hapus riwayat percakapan ini?")) return;
+
+      const targetId = chatSessionId;
+
+      clearChatButton.disabled = true;
+
+      try {
+        await api.del(
+          "/api/rag/chat/" + encodeURIComponent(targetId) + "/delete/",
+        );
+
+        // Sesi yang dihapus harus **dilepas** dari state lokal, bukan
+        // hanya disembunyikan dari layar. Kalau id-nya dibiarkan di
+        // `sessionStorage`, halaman di-refresh akan memuat ulang sesi
+        // yang sudah dihapus — backend membalas 404, dan `loadHistory()`
+        // diam-diam menghapus id-nya tanpa memberi tahu user.
+        if (chatSessionId === targetId) {
+          chatSessionId = "";
+          sessionChecked = false;
+          sessionPromise = null;
+          sessionStorage.removeItem("akademia.ragSessionId");
+        }
+
+        // Kembalikan panel ke kondisi awal: sapaan pembuka + penghitung
+        // pertanyaan kembali ke nol.
+        if (messages) {
+          messages.innerHTML = greetingMarkup;
+          messages.scrollTop = messages.scrollHeight;
+        }
+        setQuestionCount(0);
+
+        syncClearButton();
+        appendNotice("Riwayat percakapan dihapus.", "info");
+      } catch (error) {
+        clearChatButton.disabled = false;
+        appendNotice(
+          "Gagal menghapus riwayat: " + (error.message || "tidak diketahui"),
+          "error",
+        );
+      }
     });
   }
 

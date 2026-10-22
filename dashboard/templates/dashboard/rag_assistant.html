@@ -106,6 +106,15 @@
                 <h2>Tanya Dokumen</h2>
                 <p>Ajukan pertanyaan tentang materi kuliahmu.</p>
             </div>
+            <!--
+                Tombol "hapus riwayat" dihide sampai ada sesi. Fyikanya
+                sesi baru dibuat backend saat pertanyaan pertama dikirim —
+                sebelum itu tombolnya tidak punya apa-apa untuk dihapus.
+            -->
+            <button class="rag-ghost-button" type="button" id="ragClearChat" hidden>
+                <span class="material-symbols-outlined">delete_sweep</span>
+                Hapus riwayat
+            </button>
         </div>
 
         <div class="chat-messages" id="chatMessages">

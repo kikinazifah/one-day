@@ -8,6 +8,7 @@ Alur:
     browser ──POST  /api/rag/chat/sessions/──────▶ Django ──▶ FastAPI POST  /rag/chat/sessions
     browser ──GET   /api/rag/chat/<id>/──────────▶ Django ──▶ FastAPI GET   /rag/chat/<id>
     browser ──POST  /api/rag/chat/<id>/message/──▶ Django ──▶ FastAPI POST  /rag/chat/<id>/message
+    browser ──DELETE /api/rag/chat/<id>/delete/──▶ Django ──▶ FastAPI DELETE /rag/chat/<id>
 
 Kenapa file ini terpisah:
 
@@ -31,7 +32,7 @@ from __future__ import annotations
 import logging
 
 from django.http import JsonResponse
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from . import backend_api
 from .backend_api import ApiError
@@ -160,6 +161,41 @@ def rag_chat_history(request, session_id: str):
         messages.append(message)
 
     return JsonResponse({"ok": True, "messages": messages})
+
+
+@require_http_methods(["DELETE", "POST"])
+@same_origin_json
+def rag_chat_session_delete(request, session_id: str):
+    """Hapus satu sesi percakapan RAG beserta pesannya.
+
+    Backend ``DELETE /rag/chat/{id}`` milik sesi yang sedang dipakai saja
+    (backend memeriksa ``user_id``). Sesi milik akun lain → 404, jadi
+    endpoint ini tidak bisa dipakai untuk menebak-nebak id milik orang.
+
+    Kenapa perlu ada di BFF: tanpa ini, satu-sesi chat yang salah tidak
+    bisa dibuang dari UI. Sesi itu tetap menumpuk di server, dan setiap
+    kali halaman di-refresh, ``sessionStorage`` memuat ulang id yang sama —
+    jadi user tidak pernah bisa lepas dari riwayat yang salah.
+    """
+    if not _id_ok(session_id):
+        return JsonResponse({"ok": False, "error": "Id sesi tidak valid."}, status=400)
+
+    try:
+        backend_api.request("DELETE", f"/rag/chat/{session_id}")
+    except ApiError as exc:
+        # 404 = sesi sudah tidak ada (mis. dihapus dari tab lain, atau
+        # sudah dibersihkan sebelumnya). Estado akhir yang diinginkan sudah
+        # tercapai, jadi ini **bukan** kegagalan — hasilnya idempoten.
+        # Kalau 404 diteruskan apa adanya, user menekan "hapus" lagi
+        # akan selalu melihat error padahal tidak ada yang perlu dihapus.
+        if exc.status == 404:
+            return JsonResponse(
+                {"ok": True, "message": "Riwayat percakapan sudah tidak ada."}
+            )
+        logger.warning("hapus sesi chat RAG %s gagal: %s", session_id, exc)
+        return _error(exc)
+
+    return JsonResponse({"ok": True, "message": "Riwayat percakapan dihapus."})
 
 
 @require_POST

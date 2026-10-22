@@ -158,10 +158,12 @@
             <p>Sesi rekaman yang tersimpan di backend.</p>
         </div>
     </div>
-    {# Placeholder. "Belum ada sesi rekaman." akan berbohong kalau ditulis
+    {% comment %}
+       Placeholder. "Belum ada sesi rekaman." akan berbohong kalau ditulis
        di sini: server tidak tahu isi riwayat, dan `loadSessions()` butuh
        beberapa detik untuk menjawab. JS menggantinya dengan state yang
-       benar (memuat / gagal / memang kosong). #}
+       benar (memuat / gagal / memang kosong).
+    {% endcomment %}
     <div id="sessionHistory" class="history-empty">Memuat riwayat sesi...</div>
 </section>
 

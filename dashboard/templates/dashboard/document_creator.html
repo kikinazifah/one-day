@@ -10,6 +10,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{% static 'dashboard/ai_markdown.js' %}" defer></script>
 <script src="{% static 'dashboard/document_creator.js' %}" defer></script>
 {% endblock %}
 
@@ -18,90 +19,124 @@
     <div>
         <span class="eyebrow"><span class="material-symbols-outlined">description</span> AKADEMIA AI
             WORKSPACE</span>
-        <h1>Generator Dokumen Akademik</h1>
-        <p>Buat laporan, presentasi, dan dokumen akademik dalam satu tempat.</p>
+        <h1>Ruang Dokumen Akademik</h1>
+        <p>Jelaskan dokumenmu.Buat baru, lalu minta perubahannya di ruang yang sama.</p>
     </div>
     <span class="status-pill"><span class="live-dot"></span> AI Siap Digunakan</span>
 </section>
 
+<!-- RuANG CHAT
+     Card "Buat Dokumen" yang lama diganti chat room. Alasannya: form hanya
+     bisa membuat, sedangkan hampir semua kebutuhan berikutnya ("tambah
+     metodologi", "perbaiki tabel") adalah perubahan — dan perubahan
+     tidak punya tempat di form.
+
+     Percakapan punya dua mode, dan backend yang memilihnya:
+       - belum ada dokumen  → pesannya brief, dokumen dibuat dari situ
+       - dokumen sudah ada   → pesannya instruksi, dokumennya yang diubah
+     Frontend tidak perlu tahu bedanya; dia hanya mengirim pesannya. -->
 <div class="document-layout">
-    <section class="panel">
+    <section class="panel chat-panel">
         <div class="panel-heading">
-            <span class="panel-icon material-symbols-outlined">edit_document</span>
+            <span class="panel-icon material-symbols-outlined">forum</span>
             <div>
-                <h2>Buat Dokumen Baru</h2>
-                <p>Isi informasi dokumen yang ingin kamu buat.</p>
+                <h2>Percakapan Dokumen</h2>
+                <p id="chatModeLabel">Tulis apa yang kamu mau — dokumen dibuat dari sana.</p>
+            </div>
+            <div class="block-panel-actions">
+                <button type="button" class="ghost-button" id="chatNewDocument" hidden>
+                    <span class="material-symbols-outlined">add</span> Dokumen baru
+                </button>
             </div>
         </div>
 
-        <form id="documentForm">
-            {% csrf_token %}
-            <label class="field-label" for="docType">Jenis Dokumen</label>
-            <select id="docType" class="form-control">
-                <option value="Laporan akademik">Laporan akademik</option>
-                <option value="Makalah">Makalah</option>
-                <option value="Proposal penelitian">Proposal penelitian</option>
-                <option value="Presentasi">Presentasi</option>
-                <option value="Ringkasan materi">Ringkasan materi</option>
-            </select>
-
-            <label class="field-label" for="docTitle">Judul Dokumen</label>
-            <input class="form-control" id="docTitle" placeholder="Contoh: Laporan Praktikum Basis Data" required />
-
-            <label class="field-label" for="docSubject">Mata Kuliah</label>
-            <input class="form-control" id="docSubject" placeholder="Nama mata kuliah" />
-
-            <label class="field-label" for="docDescription">Instruksi atau Isi Dokumen</label>
-            <textarea class="form-control textarea-large" id="docDescription"
-                placeholder="Jelaskan topik, tujuan, struktur, atau materi yang ingin dibahas..." required></textarea>
-
-            <div class="two-fields">
-                <div>
-                    <label class="field-label" for="docLanguage">Bahasa</label>
-                    <select class="form-control" id="docLanguage">
-                        <option>Bahasa Indonesia</option>
-                        <option>Bahasa Inggris</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="field-label" for="docLength">Panjang Dokumen</label>
-                    <select class="form-control" id="docLength">
-                        <option>Singkat</option>
-                        <option selected>Standar</option>
-                        <option>Terperinci</option>
-                    </select>
-                </div>
+        <!-- Area pesan. Isinya dibangun JS dari event SSE. -->
+        <div class="ai-chat" id="chatMessages" role="log" aria-live="polite">
+            <div class="ai-chat-empty" id="chatEmpty">
+                <p class="ai-chat-empty-title">Mulai dengan satu kalimat</p>
+                <p class="ai-chat-empty-body">
+                    Contoh: "Buat laporan praktikum normalisasi database dengan 3NF."
+                    Setelah dokumen ada, pesan berikutnya langsung mengubahnya.
+                </p>
+                <div class="ai-starter-list" id="chatStarters"></div>
             </div>
+        </div>
 
-            <button class="wide-primary" type="submit">
-                <span class="material-symbols-outlined">auto_awesome</span>
-                <span id="docSubmitLabel">Buat Dokumen</span>
+        <form class="chat-form" id="chatForm">
+            {% csrf_token %}
+            <textarea id="chatInput" rows="1"
+                placeholder="Tulis instruksi atau pertanyaan tentang dokumenmu..."></textarea>
+            <button type="submit" id="chatSend" title="Kirim">
+                <span class="material-symbols-outlined">send</span>
             </button>
-            <p class="form-note">
-                Dokumen dibuat oleh layanan AI. Proses ini bisa memakan waktu
-                satu sampai tiga menit.
-            </p>
         </form>
+        <p class="form-note" id="chatNote">
+            Dokumen yang dibuat langsung tersimpan di perpustakaan.
+        </p>
     </section>
 
     <section class="panel preview-panel">
         <div class="panel-heading">
             <span class="panel-icon material-symbols-outlined">article</span>
             <div>
-                <h2>Pratinjau Dokumen</h2>
-                <p>Hasil dokumen akan tampil di area ini.</p>
+                <h2>Dokumen</h2>
+                <p>Dokumen yang sedang dibahas, dengan struktur dan pratinjau.</p>
             </div>
         </div>
-        <div class="empty-state" id="documentPreview">
-            <span class="material-symbols-outlined">description</span>
-            <h3>Belum Ada Dokumen</h3>
-            <p>
-                Lengkapi formulir, lalu tekan tombol Buat Dokumen untuk melihat
-                hasil dokumenmu.
-            </p>
+
+        <div class="document-side">
+            <div class="document-card" id="documentCard" hidden>
+                <div class="document-card-head">
+                    <h3 id="documentTitle">Dokumen</h3>
+                    <span class="badge blue" id="documentType">DOCX</span>
+                </div>
+                <div class="document-card-actions" id="documentActions"></div>
+            </div>
+
+            <div class="empty-state" id="documentPreview">
+                <span class="material-symbols-outlined">description</span>
+                <h3>Belum Ada Dokumen</h3>
+                <p>Mulai mengobrol — dokumenmu akan muncul di sini.</p>
+            </div>
         </div>
     </section>
 </div>
+
+<!-- Panel editing blok. Muncul setelah ada dokumen .docx: daftar blok,
+     edit per blok, dan hasil QC. Sengaja dipisah dari chat: chat untuk
+     bahasa alami, panel untuk kontrol presisi per blok. -->
+<section class="panel block-panel" id="blockPanel" hidden>
+    <div class="panel-heading">
+        <span class="panel-icon material-symbols-outlined">account_tree</span>
+        <div>
+            <h2>Struktur Dokumen</h2>
+            <p>Edit per bagian. Blok yang tidak kamu ubah tetap utuh.</p>
+        </div>
+        <div class="block-panel-actions">
+            <button type="button" class="ghost-button" id="blockRefresh">
+                <span class="material-symbols-outlined">refresh</span> Muat ulang
+            </button>
+        </div>
+    </div>
+
+    <div class="block-layout">
+        <div class="block-list-wrap">
+            <ol class="block-list" id="blockList"></ol>
+            <p class="form-note" id="blockEmpty" hidden>
+                Dokumen ini belum punya blok yang bisa diedit.
+            </p>
+        </div>
+
+        <aside class="block-side">
+            <div class="block-side-head">
+                <h3>Pemeriksaan</h3>
+                <p>Catatan kualitas dokumen setelah perubahan terakhir.</p>
+            </div>
+            <ul class="qc-list" id="qcList" hidden></ul>
+            <p class="form-note" id="qcEmpty">Belum ada dokumen untuk diperiksa.</p>
+        </aside>
+    </div>
+</section>
 
 <div class="toast" id="toast" role="status"></div>
 {% endblock %}

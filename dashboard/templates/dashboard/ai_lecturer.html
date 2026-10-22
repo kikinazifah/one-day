@@ -28,14 +28,35 @@
             <header class="lecturer-chat-header">
                 <div class="lecturer-avatar"><span class="material-symbols-outlined">school</span></div>
                 <div class="lecturer-chat-title">
-                    <h2>Dosen AI Akademia</h2>
-                    <p>Asisten belajar untuk berbagai mata kuliah</p>
+                    <h2 id="lecturerPersonaName">Dosen AI Akademia</h2>
+                    <p id="lecturerPersonaMeta">Asisten belajar untuk berbagai mata kuliah</p>
                 </div>
+                <label class="sr-only" for="lecturerPersonaSelect">Pilih persona dosen</label>
+                <select id="lecturerPersonaSelect" class="lecturer-persona-select"
+                    aria-label="Pilih persona dosen"></select>
                 <button class="lecturer-icon-button" id="clearLecturerChat" type="button" title="Mulai percakapan baru"
                     aria-label="Mulai percakapan baru">
                     <span class="material-symbols-outlined">restart_alt</span>
                 </button>
             </header>
+
+            <!-- Toolbar retrieval: mata kuliah + toggle "pakai dokumen saya".
+                 Tanpa mata kuliah yang dipilih, backend tidak bisa menyaring
+                 dokumen — jadi toggle itu baru aktif setelah MK dipilih. -->
+            <div class="lecturer-toolbar">
+                <div class="lecturer-toolbar-field">
+                    <label class="sr-only" for="lecturerCourseSelect">Pilih mata kuliah</label>
+                    <select id="lecturerCourseSelect" class="lecturer-course-select"
+                        aria-label="Pilih mata kuliah untuk pencarian dokumen">
+                        <option value="">Semua mata kuliah</option>
+                    </select>
+                </div>
+                <label class="lecturer-rag-toggle" title="Jawab memakai dokumen yang kamu unggah">
+                    <input type="checkbox" id="lecturerUseRag">
+                    <span class="material-symbols-outlined">library_books</span>
+                    <span class="lecturer-rag-toggle-label">Pakai dokumen saya</span>
+                </label>
+            </div>
 
             <div class="lecturer-chat-body" id="lecturerChat" aria-live="polite">
                 <div class="lecturer-date-label"><span>PERCakapan BARU</span></div>
@@ -75,6 +96,7 @@
             </div>
 
             <form class="lecturer-composer" id="lecturerForm">
+                {% csrf_token %}
                 <label class="sr-only" for="lecturerInput">Pertanyaan untuk Dosen AI</label>
                 <textarea id="lecturerInput" rows="2"
                     placeholder="Tulis pertanyaan atau materi yang ingin kamu diskusikan..." required></textarea>
@@ -138,5 +160,182 @@
             </section>
         </aside>
     </div>
+
+    <div class="lecturer-tabs" role="tablist" aria-label="Fitur AI Lecturer">
+        <button class="lecturer-tab is-active" type="button" role="tab" data-tab="persona"
+            aria-selected="true" aria-controls="lecturerPanelPersona">
+            <span class="material-symbols-outlined">person</span> Persona
+        </button>
+        <button class="lecturer-tab" type="button" role="tab" data-tab="reports"
+            aria-selected="false" aria-controls="lecturerPanelReports">
+            <span class="material-symbols-outlined">summarize</span> Laporan
+        </button>
+        <button class="lecturer-tab" type="button" role="tab" data-tab="video"
+            aria-selected="false" aria-controls="lecturerPanelVideo">
+            <span class="material-symbols-outlined">movie</span> Video Ajar
+        </button>
+    </div>
+
+    <div class="lecturer-tab-panels">
+        <!-- ============================================ PERSONA -->
+        <section class="lecturer-panel is-active" id="lecturerPanelPersona" role="tabpanel"
+            aria-labelledby="lecturerPanelPersona">
+            <div class="lecturer-panel-grid">
+                <div class="lecturer-panel-card">
+                    <div class="lecturer-panel-heading">
+                        <span class="material-symbols-outlined">groups</span>
+                        <div>
+                            <h3>Daftar Persona</h3>
+                            <p>Setiap persona punya gaya bicara sendiri.</p>
+                        </div>
+                    </div>
+                    <div class="lecturer-list" id="lecturerPersonaList"></div>
+                </div>
+
+                <div class="lecturer-panel-card">
+                    <div class="lecturer-panel-heading">
+                        <span class="material-symbols-outlined">person_edit</span>
+                        <div>
+                            <h3 id="lecturerPersonaFormTitle">Persona Baru</h3>
+                            <p>Atur nama, gaya, dan instruksi khusus.</p>
+                        </div>
+                    </div>
+                    <form class="lecturer-form" id="lecturerPersonaForm">
+                        {% csrf_token %}
+                        <input type="hidden" id="personaId" name="persona_id" value="" />
+
+                        <label class="field-label" for="personaName">Nama Dosen</label>
+                        <input class="form-control" id="personaName" name="name" maxlength="255"
+                            placeholder="Contoh: Dosen Basis Data" required />
+
+                        <label class="field-label" for="personaStyle">Gaya Mengajar</label>
+                        <select class="form-control" id="personaStyle" name="style" required>
+                            <option value="friendly">Santai & Ramah</option>
+                            <option value="professional">Profesional</option>
+                            <option value="strict">Ketat / Disiplin</option>
+                            <option value="casual">Gaul / Santai</option>
+                            <option value="enthusiastic">Antusias</option>
+                        </select>
+
+                        <label class="field-label" for="personaLanguage">Bahasa</label>
+                        <select class="form-control" id="personaLanguage" name="language">
+                            <option value="id">Bahasa Indonesia</option>
+                            <option value="en">English</option>
+                        </select>
+
+                        <label class="field-label" for="personaTeachingStyle">Gaya Pembelajaran</label>
+                        <input class="form-control" id="personaTeachingStyle" name="teaching_style"
+                            maxlength="2000" placeholder="Contoh: stepwise, banyak analogi" />
+
+                        <label class="field-label" for="personaSpecialNeeds">Kebutuhan Khusus</label>
+                        <input class="form-control" id="personaSpecialNeeds" name="special_needs"
+                            maxlength="2000" placeholder="Contoh: perlu contoh yang sering" />
+
+                        <label class="field-label" for="personaCustomPrompt">Instruksi Kustom</label>
+                        <textarea class="form-control" id="personaCustomPrompt" name="custom_prompt"
+                            rows="3" maxlength="4000"
+                            placeholder="Instruksi sistem untuk LLM, mis. 'Selalu jawab dalam bahasa Indonesia'."></textarea>
+
+                        <div class="lecturer-form-actions">
+                            <button class="wide-primary" type="submit" id="lecturerPersonaSubmit">
+                                <span class="material-symbols-outlined">save</span>
+                                <span id="lecturerPersonaSubmitLabel">Simpan Persona</span>
+                            </button>
+                            <button class="lecturer-ghost-button" type="button" id="lecturerPersonaReset"
+                                hidden>Batal Edit</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================ LAPORAN -->
+        <section class="lecturer-panel" id="lecturerPanelReports" role="tabpanel"
+            aria-labelledby="lecturerPanelReports">
+            <div class="lecturer-panel-card">
+                <div class="lecturer-panel-heading">
+                    <span class="material-symbols-outlined">summarize</span>
+                    <div>
+                        <h3>Laporan Mingguan</h3>
+                        <p>Ringkasan aktivitas belajar dari backend.</p>
+                    </div>
+                    <button class="lecturer-ghost-button" type="button" id="lecturerReportGenerate">
+                        <span class="material-symbols-outlined">auto_awesome</span> Buat Laporan
+                    </button>
+                </div>
+                <!--
+                    Indikator status pembuatan laporan. Laporan dibuat
+                    sebagai background job, jadi tanpa ini pengguna hanya
+                    tahu "sedang jalan" tanpa tahu selesai atau gagal.
+                -->
+                <p class="lecturer-card-note" id="lecturerReportStatus" role="status"
+                    aria-live="polite">
+                    Laporan dibuat otomatis tiap minggu oleh worker. Tekan
+                    “Buat Laporan” untuk membuat sekarang.
+                </p>
+                <div class="lecturer-list" id="lecturerReportList"></div>
+            </div>
+        </section>
+
+        <!-- ============================================ VIDEO -->
+        <section class="lecturer-panel" id="lecturerPanelVideo" role="tabpanel"
+            aria-labelledby="lecturerPanelVideo">
+            <div class="lecturer-panel-grid">
+                <div class="lecturer-panel-card">
+                    <div class="lecturer-panel-heading">
+                        <span class="material-symbols-outlined">movie_edit</span>
+                        <div>
+                            <h3>Buat Video Ajar</h3>
+                            <p>Materi diubah menjadi video oleh backend.</p>
+                        </div>
+                    </div>
+                    <form class="lecturer-form" id="lecturerVideoForm">
+                        {% csrf_token %}
+                        <label class="field-label" for="videoMaterial">Materi Ajar</label>
+                        <textarea class="form-control" id="videoMaterial" name="material" rows="5"
+                            maxlength="20000" placeholder="Tuliskan materi yang ingin dijadikan video ajar..."
+                            required></textarea>
+
+                        <label class="field-label" for="videoStyle">Gaya Video</label>
+                        <select class="form-control" id="videoStyle" name="video_style">
+                            <option value="professional">Profesional</option>
+                            <option value="casual">Santai</option>
+                            <option value="animated">Animasi</option>
+                            <option value="slideshow">Slide</option>
+                        </select>
+
+                        <button class="wide-primary" type="submit">
+                            <span class="material-symbols-outlined">movie</span>
+                            <span id="lecturerVideoSubmitLabel">Buat Video</span>
+                        </button>
+                        <p class="form-note">Video dibuat di latar belakang backend. Statusnya diperbarui otomatis.</p>
+                    </form>
+                </div>
+
+                <div class="lecturer-panel-card">
+                    <div class="lecturer-panel-heading">
+                        <span class="material-symbols-outlined">video_library</span>
+                        <div>
+                            <h3>Job Video</h3>
+                            <p>Daftar video ajar beserta statusnya.</p>
+                        </div>
+                    </div>
+                    <!--
+                        Saring daftar video per mata kuliah. Tanpa ini
+                        semua job dari berbagai mata kuliah tercampur, dan
+                        video yang baru dibuat sulit ditemukan di antara
+                        job lama.
+                    -->
+                    <label class="field-label" for="lecturerVideoCourseFilter">Mata Kuliah</label>
+                    <select class="form-control" id="lecturerVideoCourseFilter">
+                        <option value="">Semua mata kuliah</option>
+                    </select>
+                    <div class="lecturer-list" id="lecturerVideoList"></div>
+                </div>
+            </div>
+        </section>
+    </div>
 </section>
+
+<div class="toast" id="toast" role="status"></div>
 {% endblock %}

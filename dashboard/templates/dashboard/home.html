@@ -14,6 +14,13 @@
     />
 
     <link rel="stylesheet" href="{% static 'dashboard/style.css' %}" />
+    {% comment %}
+       Script bersama — daftar yang sama dengan base.html, diambil dari
+       satu include supaya tidak bisa berbeda antar halaman. Lihat
+       _shared_scripts.html.
+    {% endcomment %}
+    {% include 'dashboard/_shared_scripts.html' %}
+    <script src="{% static 'dashboard/home.js' %}" defer></script>
   </head>
   <body>
     <div class="app">
@@ -28,8 +35,8 @@
         <div class="campus-card">
           <div class="campus-icon material-symbols-outlined">school</div>
           <div>
-            <strong>Akademia Studio</strong>
-            <p>Semester 6 • CS<br />Undergrad</p>
+            <strong>Akademia AI</strong>
+            <p data-profile-campus>Memuat data akun...</p>
           </div>
         </div>
 
@@ -47,9 +54,8 @@
           </a>
 
           <a
-            href="#lecture"
+            href="{% url 'lecture_listener' %}"
             class="nav-item"
-            data-notice="Lecture Listener belum terhubung."
           >
             <span class="material-symbols-outlined">graphic_eq</span>
             <span>Lecture Listener</span>
@@ -57,37 +63,33 @@
           </a>
 
           <a
-            href="#reminder"
+            href="{% url 'reminder_system' %}"
             class="nav-item"
-            data-notice="Kamu memiliki 2 pengingat prioritas."
           >
             <span class="material-symbols-outlined">notifications_active</span>
             <span>Reminder System</span>
-            <span class="badge red">2</span>
+            <span class="badge red" data-reminder-badge hidden></span>
           </a>
 
           <a
-            href="#rag"
+            href="{% url 'rag_assistant' %}"
             class="nav-item"
-            data-notice="RAG Document Assistant belum terhubung."
           >
             <span class="material-symbols-outlined">manage_search</span>
             <span>RAG Document Assistant</span>
           </a>
 
           <a
-            href="#lecturer"
+            href="{% url 'ai_lecturer' %}"
             class="nav-item"
-            data-notice="AI Lecturer belum terhubung."
           >
             <span class="material-symbols-outlined">school</span>
             <span>AI Lecturer (Dosen AI)</span>
           </a>
 
           <a
-            href="#scheduler"
+            href="{% url 'auto_scheduler' %}"
             class="nav-item"
-            data-notice="Web Auto Scheduler belum terhubung."
           >
             <span class="material-symbols-outlined">calendar_month</span>
             <span>Web Auto Scheduler</span>
@@ -97,11 +99,11 @@
         <div class="sidebar-footer">
           <div class="token-card">
             <div class="token-heading">
-              <span>TOKEN KOMPUTASI</span>
-              <strong>84% Sisa</strong>
+              <span>AKTIVITAS AKUN</span>
+              <strong data-activity-count>-</strong>
             </div>
-            <div class="token-progress"><span></span></div>
-            <button data-notice="Fitur upgrade kuota belum tersedia.">
+            <div class="token-progress"><span data-activity-bar></span></div>
+            <button type="button" data-unavailable="Fitur upgrade kuota belum tersedia.">
               Upgrade Kuota AI
             </button>
           </div>
@@ -109,7 +111,7 @@
           <a
             href="#settings"
             class="footer-link"
-            data-notice="Pengaturan kampus belum tersedia."
+            data-unavailable="Pengaturan kampus belum tersedia."
           >
             <span class="material-symbols-outlined">settings</span>
             Pengaturan Kampus
@@ -117,7 +119,7 @@
           <a
             href="#help"
             class="footer-link"
-            data-notice="Pusat bantuan belum tersedia."
+            data-unavailable="Pusat bantuan belum tersedia."
           >
             <span class="material-symbols-outlined">help_outline</span>
             Bantuan
@@ -150,37 +152,47 @@
               Buat Materi AI
             </button>
 
-            <button
-              class="process-button"
-              data-notice="Status proses ini masih berupa data contoh."
-            >
+            <button class="process-button" type="button">
               <span class="live-dot"></span>
-              Proses Aktif <span class="badge blue">5</span>
+              Proses Aktif
+              <span class="badge blue" hidden></span>
+            </button>
+
+            <!-- Lonceng notifikasi. Halaman ini berdiri sendiri (tidak
+                 me-extend base.html), jadi loncengnya harus ada di sini.
+                 Jangan diduplikasi dalam satu halaman — dua elemen dengan
+                 id yang sama membuat document.getElementById() ambigu. -->
+            <button class="header-icon" type="button" id="notificationBell"
+                aria-label="Notifikasi" aria-expanded="false"
+                aria-controls="notificationPanel">
+                <span class="material-symbols-outlined">notifications</span>
+                <i style="display: none"></i>
             </button>
 
             <button
               class="header-icon"
-              aria-label="Notifikasi"
-              data-notice="Kamu memiliki 2 pengingat prioritas."
-            >
-              <span class="material-symbols-outlined">notifications</span>
-              <i></i>
-            </button>
-
-            <button
-              class="header-icon"
+              type="button"
               aria-label="Bantuan"
-              data-notice="Pusat bantuan belum tersedia."
+              data-unavailable="Pusat bantuan belum tersedia."
             >
               <span class="material-symbols-outlined">help</span>
             </button>
 
             <div class="user-profile">
-              <div class="avatar">AF</div>
+              <div class="avatar" data-profile-avatar>U</div>
               <div class="user-details">
-                <strong>Ahmad Fauzan</strong>
-                <small>NIM 13521049</small>
+                <strong data-profile-name>-</strong>
+                <small data-profile-meta>-</small>
               </div>
+              <button
+                type="button"
+                class="user-profile-edit"
+                id="editProfileButton"
+                aria-label="Ubah profil"
+                title="Ubah profil"
+              >
+                <span class="material-symbols-outlined">edit</span>
+              </button>
             </div>
           </div>
         </header>
@@ -191,16 +203,16 @@
             <div class="welcome-content">
               <div class="campus-label">
                 <span class="material-symbols-outlined">school</span>
-                Institut Teknologi Akademika • Semester 6 Ganjil
+                <span data-profile-campus>Akademia AI</span>
               </div>
 
               <h1>
-                Selamat Datang Kembali, Ahmad! Siap menguasai materi hari ini?
+                Selamat Datang Kembali, <span data-profile-first-name>-</span>!
+                Siap menguasai materi hari ini?
               </h1>
 
-              <p class="welcome-description">
-                Ada <strong>2 sesi kuliah aktif</strong>, 1 berkas video
-                simulasi selesai diproses, dan 2 pengingat tugas prioritas.
+              <p class="welcome-description" id="homeSummary">
+                Memuat ringkasan dari backend...
               </p>
 
               <div class="prompt">
@@ -213,10 +225,7 @@
                   placeholder="Ketik instruksi, tanya berkas kuliah, atau mulai rekam kelas..."
                 />
 
-                <button
-                  class="prompt-option"
-                  data-notice="Voice STT belum terhubung."
-                >
+                <button class="prompt-option" type="button" id="voiceStt">
                   <span class="material-symbols-outlined">mic</span>
                   Voice STT
                 </button>
@@ -243,8 +252,8 @@
                 >calendar_month</span
               >
               <div>
-                <strong>Rabu, 23 Oktober 2024</strong>
-                <p>Minggu Perkuliahan<br />ke-9</p>
+                <strong id="homeDate">-</strong>
+                <p id="homeWeek">Minggu Perkuliahan</p>
               </div>
             </div>
           </section>
@@ -262,49 +271,11 @@
               </button>
             </div>
 
-            <div class="worker-grid">
-              <article class="worker-card">
-                <div class="worker-title">
-                  <span class="material-symbols-outlined">video_library</span>
-                  <strong>Video Dosen AI: Jaringan Saraf Tiruan</strong>
-                  <span class="badge blue">68%</span>
-                </div>
-                <div class="progress"><span></span></div>
-                <div class="worker-info">
-                  <span>Node: Celery/Redis GPU-02</span>
-                  <span>Est. 1m 20s</span>
-                </div>
-              </article>
-
-              <article class="worker-card">
-                <div class="worker-title">
-                  <span class="material-symbols-outlined">travel_explore</span>
-                  <strong>Web Crawler Jadwal Kampus SIA</strong>
-                  <span class="badge green">Selesai</span>
-                </div>
-                <p class="worker-description">
-                  Sinkronisasi Selesai • 0 Konflik Jadwal Terdeteksi
-                </p>
-                <div class="worker-info">
-                  <span>Hash Validated: #SIAM-8941</span>
-                  <strong>Tersinkron 07:15 WIB</strong>
-                </div>
-              </article>
-
-              <article class="worker-card">
-                <div class="worker-title">
-                  <span class="material-symbols-outlined">database</span>
-                  <strong>RAG Vector Indexing (ChromaDB)</strong>
-                  <span class="badge blue">12 Berkas</span>
-                </div>
-                <p class="worker-description">
-                  12 Catatan Kuliah Terindeks (Cosine Similarity)
-                </p>
-                <div class="worker-info">
-                  <span>Embedding: text-embedding-3</span>
-                  <strong>Ready for Prompting</strong>
-                </div>
-              </article>
+            <div class="worker-grid" id="workerGrid">
+              <div class="empty-state compact-empty">
+                <span class="material-symbols-outlined">sync</span>
+                <p>Memuat status pekerjaan latar belakang...</p>
+              </div>
             </div>
           </section>
 
@@ -360,10 +331,7 @@
                   Rekam live suara dosen dengan Whisper STT, transkripsi dibahas
                   otomatis, dan pembuatan ringkasan poin inti real-time.
                 </p>
-                <button
-                  class="feature-button green-feature"
-                  data-notice="Perekaman kuliah belum terhubung."
-                >
+                <button class="feature-button green-feature" type="button">
                   <span class="material-symbols-outlined">mic</span> Mulai Rekam
                   Kuliah
                 </button>
@@ -374,17 +342,14 @@
                   <span class="feature-icon red-icon material-symbols-outlined"
                     >alarm</span
                   >
-                  <span class="badge red">2 Mendesak</span>
+                  <span class="badge red" hidden></span>
                 </div>
                 <h3>Reminder System</h3>
                 <p>
                   Pemberitahuan bertingkat H-3, H-1, dan 3 jam sebelum deadline.
                   Terhubung dengan push browser atau WhatsApp.
                 </p>
-                <button
-                  class="feature-button outline-feature"
-                  data-notice="Fitur tambah tugas belum tersedia."
-                >
+                <button class="feature-button outline-feature" type="button">
                   <span class="material-symbols-outlined">add_task</span> Tambah
                   Tugas Baru
                 </button>
@@ -403,10 +368,7 @@
                   Tanya isi materi dari PDF dan catatan kuliah, lalu temukan
                   jawaban yang relevan dari berkasmu.
                 </p>
-                <button
-                  class="feature-button outline-feature"
-                  data-notice="RAG Document Assistant belum terhubung."
-                >
+                <button class="feature-button outline-feature" type="button">
                   Tanya Berkas Kuliah
                 </button>
               </article>
@@ -424,10 +386,7 @@
                   Pelajari konsep sulit dengan penjelasan bertahap, contoh soal,
                   dan latihan sesuai mata kuliah.
                 </p>
-                <button
-                  class="feature-button outline-feature"
-                  data-notice="AI Lecturer belum terhubung."
-                >
+                <button class="feature-button outline-feature" type="button">
                   Mulai Belajar
                 </button>
               </article>
@@ -438,25 +397,105 @@
                     class="feature-icon purple-icon material-symbols-outlined"
                     >calendar_month</span
                   >
-                  <span class="badge green">2 Kelas Hari Ini</span>
+                  <span class="badge green" hidden></span>
                 </div>
                 <h3>Web Auto Scheduler</h3>
                 <p>
                   Atur agenda kuliah dan tugas berdasarkan jadwal, prioritas,
                   serta tenggat waktu.
                 </p>
-                <button
-                  class="feature-button outline-feature"
-                  data-notice="Web Auto Scheduler belum terhubung."
-                >
+                <button class="feature-button outline-feature" type="button">
                   Lihat Jadwal
                 </button>
               </article>
             </div>
           </section>
+
+          <!-- TUGAS & JADWAL -->
+          <section class="dashboard-panels">
+            <article class="panel dashboard-task-panel">
+              <div class="panel-heading">
+                <span class="panel-icon material-symbols-outlined">assignment</span>
+                <div>
+                  <h2>Tugas Mendatang</h2>
+                  <p data-task-panel-summary>Memuat tugas...</p>
+                </div>
+                <a class="refresh-button" href="{% url 'reminder_system' %}">
+                  <span class="material-symbols-outlined">open_in_new</span>
+                  Kelola Tugas
+                </a>
+              </div>
+
+              <div class="dashboard-task-list" id="dashboardTaskList">
+                <div class="empty-state compact-empty">
+                  <span class="material-symbols-outlined">assignment</span>
+                  <p>Memuat tugas...</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel dashboard-schedule-panel">
+              <div class="panel-heading">
+                <span class="panel-icon material-symbols-outlined">calendar_month</span>
+                <div>
+                  <h2>Jadwal Hari Ini</h2>
+                  <p data-schedule-panel-summary>Memuat jadwal...</p>
+                </div>
+                <a class="refresh-button" href="{% url 'auto_scheduler' %}">
+                  <span class="material-symbols-outlined">open_in_new</span>
+                  Jadwal Lengkap
+                </a>
+              </div>
+
+              <div class="dashboard-schedule-list" id="dashboardScheduleList">
+                <div class="empty-state compact-empty">
+                  <span class="material-symbols-outlined">calendar_month</span>
+                  <p>Memuat jadwal...</p>
+                </div>
+              </div>
+            </article>
+          </section>
+
+          <!--
+            LAPORAN MINGGUAN (Dosen AI)
+
+            Laporan dibuat otomatis oleh worker tiap minggu. Widget ini
+            menampilkan ringkasan periode terakhir plus tombol unduh —
+            laporan lengkap tetap ada di tab AI Lecturer, jadi widget
+            ini tidak menggandakan halaman, hanya memberi jalan pintas
+            ke HA yang bisa diunduh.
+          -->
+          <section class="dashboard-panels dashboard-report-panel">
+            <article class="panel dashboard-weekly-report-panel">
+              <div class="panel-heading">
+                <span class="panel-icon material-symbols-outlined">summarize</span>
+                <div>
+                  <h2>Laporan Mingguan</h2>
+                  <p data-report-panel-summary>Memuat laporan...</p>
+                </div>
+                <a class="refresh-button" href="{% url 'ai_lecturer' %}">
+                  <span class="material-symbols-outlined">open_in_new</span>
+                  Dosen AI
+                </a>
+              </div>
+
+              <div class="dashboard-report-list" id="dashboardReportList">
+                <div class="empty-state compact-empty">
+                  <span class="material-symbols-outlined">summarize</span>
+                  <p>Memuat laporan...</p>
+                </div>
+              </div>
+            </article>
+          </section>
         </div>
       </main>
     </div>
+
+    <!-- NOTIFIKASI -->
+    {% include 'dashboard/_notification_panel.html' %}
+
+    <!-- UBAH PROFIL -->
+    {% include 'dashboard/_profile_panel.html' %}
 
     <div id="toast" class="toast" role="status"></div>
   </body>

@@ -1,0 +1,51 @@
+<!--
+  Panel ubah profil.
+
+  Dipakai oleh base.html (halaman yangextends base) dan home.html (halaman
+  berdiri sendiri). Markup-nya sengaja berada di satu partial supaya
+  tidak ada dua versi yang bisa berbeda.
+
+  Field yang bisa diubah sama dengan ``UserUpdate`` di backend (name,
+  email, semester, major) — lihat PROFILE_FIELDS di
+  dashboard/views_api_profile.py.
+-->
+<div class="profile-panel" id="profilePanel" hidden>
+    <div class="profile-panel-head">
+        <strong>Ubah Profil</strong>
+
+        <button type="button" class="profile-panel-close" id="closeProfilePanel"
+            aria-label="Tutup">&times;</button>
+    </div>
+
+    <form id="profileForm">
+        {% csrf_token %}
+
+        <label for="profileName">Nama</label>
+        <input class="form-control" type="text" id="profileName" name="name"
+            maxlength="255" placeholder="Nama lengkap" />
+
+        <label for="profileEmail">Email</label>
+        <input class="form-control" type="email" id="profileEmail" name="email"
+            maxlength="254" placeholder="email@kampus.ac.id" />
+
+        <label for="profileSemester">Semester</label>
+        <input class="form-control" type="text" id="profileSemester" name="semester"
+            maxlength="50" placeholder="mis. 5" />
+
+        <label for="profileMajor">Jurusan</label>
+        <input class="form-control" type="text" id="profileMajor" name="major"
+            maxlength="100" placeholder="mis. Teknik Informatika" />
+
+        <p class="form-note" id="profileFormStatus" role="status"></p>
+
+        <div class="profile-panel-actions">
+            <button type="button" class="profile-panel-secondary" id="cancelProfileButton">
+                Batal
+            </button>
+
+            <button type="submit" class="profile-panel-primary" id="saveProfileButton">
+                Simpan
+            </button>
+        </div>
+    </form>
+</div>

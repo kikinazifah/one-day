@@ -1,0 +1,24 @@
+<!-- Panel notifikasi - dipakai bersama oleh semua halaman.
+
+Markup ini dulunya hanya ada di home.html, jadi lonceng notifikasi di
+topbar halaman lain (mis. Reminder System) tidak punya panelnya sendiri.
+Sekarang panelnya satu berkas dan diikutkan di mana saja loncengnya
+muncul.
+
+Catatan: jangan menulis tag template di dalam komentar HTML di sini -
+Django tetap mem-parsing-nya, dan tag yang tidak lengkap bikin halaman
+error 500.
+
+Style-nya sudah ada di style.css (.notification-panel, .notification-item,
+.notification-dot, ...) - tidak ada CSS baru di sini. -->
+<div class="notification-panel" id="notificationPanel" hidden>
+  <div class="notification-panel-head">
+    <strong>Notifikasi</strong>
+
+    <button type="button" class="notification-read-all" id="notificationReadAll">
+      Tandai semua dibaca
+    </button>
+  </div>
+
+  <div class="notification-list" id="notificationList"></div>
+</div>

@@ -30,13 +30,13 @@
     <article class="stat-card">
         <span class="stat-icon red-icon material-symbols-outlined">priority_high</span>
         <p>Tugas Mendesak</p>
-        <strong id="urgentCount">2</strong>
+        <strong id="urgentCount">0</strong>
         <small>Perlu segera diperhatikan</small>
     </article>
     <article class="stat-card">
         <span class="stat-icon purple-icon material-symbols-outlined">calendar_month</span>
         <p>Total Tugas</p>
-        <strong id="totalCount">3</strong>
+        <strong id="totalCount">0</strong>
         <small>Dalam daftar pengingat</small>
     </article>
     <article class="stat-card">
@@ -57,12 +57,15 @@
             </div>
         </div>
 
+        {% csrf_token %}
         <form id="reminderForm">
             <label class="field-label" for="taskTitle">Nama Tugas</label>
             <input class="form-control" id="taskTitle" placeholder="Contoh: Laporan praktikum" required />
 
             <label class="field-label" for="taskSubject">Mata Kuliah</label>
-            <input class="form-control" id="taskSubject" placeholder="Nama mata kuliah" />
+            <select class="form-control" id="taskSubject">
+                <option value="">Mata kuliah belum ditentukan</option>
+            </select>
 
             <label class="field-label" for="taskDeadline">Tanggal dan Waktu Tenggat</label>
             <input class="form-control" id="taskDeadline" type="datetime-local" required />
@@ -73,6 +76,45 @@
                 <option value="Sedang" selected>Sedang</option>
                 <option value="Rendah">Rendah</option>
             </select>
+
+            <label class="field-label" for="taskReminder">Waktu Pengingat</label>
+            <select class="form-control" id="taskReminder">
+                {% for preset in reminder_presets %}
+                <option value="{{ preset.value }}"{% if preset.value == "1_day" %} selected{% endif %}>{{ preset.label }}</option>
+                {% endfor %}
+                <option value="custom">Kustom (N jam/menit sebelum)...</option>
+                <option value="">Tanpa pengingat</option>
+            </select>
+
+            <div class="reminder-custom" id="taskReminderCustom" hidden>
+                <div class="reminder-custom-grid">
+                    <div>
+                        <label class="field-label" for="taskReminderCustomAmount">Jumlah</label>
+                        <!--
+                            Tidak ada atribut ``max`` di sini: batas sebenarnya
+                            adalah **365 hari**, bukan 365 angka mentah. Dengan
+                            ``max="365"``, nilai yang sah seperti ``8760_hours``
+                            (365 hari dalam jam) dianggap tidak valid oleh
+                            peramban — dan karena field-nya ikut form, seluruh
+                            dialog "Ubah" terkunci tanpa pesan yang terlihat.
+                            Batas per-satuan dicek di JavaScript (``readOffset``)
+                            dengan pesan berbahasa Indonesia.
+                        -->
+                        <input class="form-control" id="taskReminderCustomAmount" type="number"
+                            min="1" value="2" />
+                    </div>
+                    <div>
+                        <label class="field-label" for="taskReminderCustomUnit">Satuan</label>
+                        <select class="form-control" id="taskReminderCustomUnit">
+                            <option value="minutes">menit sebelum</option>
+                            <option value="hours" selected>jam sebelum</option>
+                            <option value="days">hari sebelum</option>
+                            <option value="weeks">minggu sebelum</option>
+                        </select>
+                    </div>
+                </div>
+                <p class="reminder-custom-hint" id="taskReminderCustomHint"></p>
+            </div>
 
             <label class="field-label" for="taskNotes">Catatan</label>
             <textarea class="form-control" id="taskNotes" placeholder="Catatan tambahan (opsional)"></textarea>
@@ -92,40 +134,79 @@
             </div>
         </div>
         <div class="reminder-list" id="reminderList">
-            <article class="reminder-item">
-                <div class="reminder-item-top">
-                    <span class="badge red">Tinggi</span>
-                    <span class="reminder-date">Contoh</span>
-                </div>
-                <h3>Laporan Praktikum</h3>
-                <p>Rekayasa Perangkat Lunak</p>
-                <button class="small-outline" type="button" data-demo-done>
-                    Tandai Selesai
-                </button>
-            </article>
-            <article class="reminder-item">
-                <div class="reminder-item-top">
-                    <span class="badge blue">Sedang</span>
-                    <span class="reminder-date">Contoh</span>
-                </div>
-                <h3>Persiapan Presentasi</h3>
-                <p>Metodologi Penelitian</p>
-                <button class="small-outline" type="button" data-demo-done>
-                    Tandai Selesai
-                </button>
-            </article>
-            <article class="reminder-item">
-                <div class="reminder-item-top">
-                    <span class="badge green">Rendah</span>
-                    <span class="reminder-date">Contoh</span>
-                </div>
-                <h3>Membaca Materi</h3>
-                <p>Basis Data</p>
-                <button class="small-outline" type="button" data-demo-done>
-                    Tandai Selesai
-                </button>
-            </article>
+            <div class="empty-state compact-empty">
+                <span class="material-symbols-outlined">hourglass_empty</span>
+                <p>Memuat daftar tugas...</p>
+            </div>
         </div>
     </section>
 </div>
+
+<!-- Panel ubah tugas. Memakai <dialog> native: fokus otomatis, Escape
+     untuk menutup, dan keyboard bisa navigasi — tanpa menulis state
+     modal sendiri. -->
+<dialog class="task-edit-dialog" id="taskEditDialog">
+    <form method="dialog" class="task-edit-form" id="taskEditForm">
+        <h2 class="task-edit-title">Ubah Tugas</h2>
+
+        <label class="field-label" for="editTaskTitle">Nama Tugas</label>
+        <input class="form-control" id="editTaskTitle" required />
+
+        <label class="field-label" for="editTaskSubject">Mata Kuliah</label>
+        <select class="form-control" id="editTaskSubject"></select>
+
+        <label class="field-label" for="editTaskDeadline">Tanggal dan Waktu Tenggat</label>
+        <input class="form-control" id="editTaskDeadline" type="datetime-local" required />
+
+        <label class="field-label" for="editTaskPriority">Prioritas</label>
+        <select class="form-control" id="editTaskPriority">
+            <option value="low">Rendah</option>
+            <option value="medium">Sedang</option>
+            <option value="high">Tinggi</option>
+            <option value="urgent">Mendesak</option>
+        </select>
+
+        <label class="field-label" for="editTaskReminder">Waktu Pengingat</label>
+        <select class="form-control" id="editTaskReminder">
+            <option value="">Tanpa pengingat</option>
+            {% for preset in reminder_presets %}
+            <option value="{{ preset.value }}">{{ preset.label }}</option>
+            {% endfor %}
+            <option value="custom">Kustom (N jam/menit sebelum)...</option>
+        </select>
+
+        <div class="reminder-custom" id="editTaskReminderCustom" hidden>
+            <div class="reminder-custom-grid">
+                <div>
+                    <label class="field-label" for="editTaskReminderCustomAmount">Jumlah</label>
+                    <!-- Sama seperti form tambah: tanpa ``max`` (lihat catatan di sana). -->
+                    <input class="form-control" id="editTaskReminderCustomAmount" type="number"
+                        min="1" value="2" />
+                </div>
+                <div>
+                    <label class="field-label" for="editTaskReminderCustomUnit">Satuan</label>
+                    <select class="form-control" id="editTaskReminderCustomUnit">
+                        <option value="minutes">menit sebelum</option>
+                        <option value="hours" selected>jam sebelum</option>
+                        <option value="days">hari sebelum</option>
+                        <option value="weeks">minggu sebelum</option>
+                    </select>
+                </div>
+            </div>
+            <p class="reminder-custom-hint" id="editTaskReminderCustomHint"></p>
+        </div>
+
+        <label class="field-label" for="editTaskNotes">Catatan</label>
+        <textarea class="form-control" id="editTaskNotes" placeholder="Catatan tambahan (opsional)"></textarea>
+
+        <p class="form-note" id="taskEditError" hidden></p>
+
+        <div class="task-edit-actions">
+            <button class="small-outline" type="button" id="taskEditCancel">Batal</button>
+            <button class="wide-primary" type="submit" id="taskEditSubmit">
+                <span class="material-symbols-outlined">save</span> Simpan Perubahan
+            </button>
+        </div>
+    </form>
+</dialog>
 {% endblock %}

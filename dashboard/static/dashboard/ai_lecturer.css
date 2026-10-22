@@ -1,4 +1,9 @@
-/* AI LECTURER */
+/* AI LECTURER
+ *
+ * Class dasar dari halaman ini (`.lecturer-*`) sebenarnya sudah ada di
+ * style.css. File ini hanya menambah/menyesuaikan yang belum tersedia:
+ * bubble hasil chat dari JS, panel Persona/Laporan/Video, dan badge amber.
+ */
 
 .lecturer-container {
   display: flex;
@@ -20,22 +25,35 @@
   overflow-y: auto;
 }
 
+/* Bubble chat yang dirender JS (`addMessage`). Strukturnya sama dengan
+   pesan pembuka di template: avatar + konten + `.lecturer-bubble`. */
 .lecturer-message {
-  max-width: 85%;
-  padding: 14px 18px;
-  border-radius: 14px;
+  max-width: 92%;
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
 
 .lecturer-message.user {
   align-self: flex-end;
-  background: #dcfce7;
+  flex-direction: row-reverse;
 }
 
 .lecturer-message.assistant {
   align-self: flex-start;
-  background: #f3f4f6;
+}
+
+.lecturer-message.user .lecturer-message-avatar {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.lecturer-message .lecturer-bubble p {
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+}
+
+.lecturer-message .lecturer-bubble p:last-child {
+  margin-bottom: 0;
 }
 
 .lecturer-input-area {
@@ -55,12 +73,589 @@
   border-radius: 10px;
 }
 
+/* ------------------------------------------------------------------ HEADER */
+
+.lecturer-persona-select {
+  max-width: 190px;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lecturer-persona-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.lecturer-typing p {
+  margin: 0;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* ----------------------------------------------------------------- TOOLBAR */
+/* Baris di bawah header chat: pilih mata kuliah + toggle "pakai dokumen". */
+
+.lecturer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.lecturer-toolbar-field {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.lecturer-course-select {
+  max-width: 260px;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lecturer-course-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.lecturer-rag-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.lecturer-rag-toggle input {
+  margin: 0;
+  accent-color: #6366f1;
+  cursor: pointer;
+}
+
+.lecturer-rag-toggle .material-symbols-outlined {
+  font-size: 15px;
+}
+
+.lecturer-rag-toggle.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.lecturer-rag-toggle.is-disabled input {
+  cursor: not-allowed;
+}
+
+/* ----------------------------------------------------------------- SUMBER */
+/* Kartu dokumen yang jadi dasar jawaban. */
+
+.lecturer-sources {
+  margin: 8px 16px 0;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #6366f1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.lecturer-sources-title {
+  margin-bottom: 6px;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lecturer-sources-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lecturer-source + .lecturer-source {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.lecturer-source-label {
+  display: block;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.lecturer-source-excerpt {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* -------------------------------------------------------------------- TABS */
+
+.lecturer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.lecturer-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.lecturer-tab .material-symbols-outlined {
+  font-size: 17px;
+  color: #6366f1;
+}
+
+.lecturer-tab:hover {
+  border-color: #a5b4fc;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.lecturer-tab.is-active {
+  border-color: #6366f1;
+  background: #4f46e5;
+  color: #fff;
+}
+
+.lecturer-tab.is-active .material-symbols-outlined {
+  color: #fff;
+}
+
+.lecturer-tab-panels {
+  margin-top: 18px;
+}
+
+.lecturer-panel {
+  display: none;
+}
+
+.lecturer-panel.is-active {
+  display: block;
+}
+
+.lecturer-panel-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.lecturer-panel-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
+}
+
+.lecturer-panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.lecturer-panel-heading > .material-symbols-outlined {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 19px;
+}
+
+.lecturer-panel-heading h3 {
+  margin: 0 0 3px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.lecturer-panel-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.lecturer-panel-heading > .lecturer-ghost-button {
+  margin-left: auto;
+}
+
+/* ---------------------------------------------------------------- ELEMEN UI */
+
+.lecturer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lecturer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fbfcff;
+}
+
+.lecturer-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.lecturer-row-main strong {
+  font-size: 12px;
+  color: #1e293b;
+}
+
+.lecturer-row-main small {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.lecturer-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.lecturer-ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.lecturer-ghost-button .material-symbols-outlined {
+  font-size: 15px;
+}
+
+.lecturer-ghost-button:hover:not(:disabled) {
+  border-color: #a5b4fc;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.lecturer-ghost-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.lecturer-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lecturer-form-actions .wide-primary {
+  flex: 1;
+  margin-top: 18px;
+}
+
+.lecturer-form-actions .lecturer-ghost-button {
+  margin-top: 18px;
+}
+
+.lecturer-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  padding: 32px 20px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  text-align: center;
+  color: #64748b;
+}
+
+.lecturer-empty > .material-symbols-outlined {
+  font-size: 34px;
+  color: #a5b4fc;
+}
+
+.lecturer-empty strong {
+  font-size: 12px;
+  color: #334155;
+}
+
+.lecturer-empty p {
+  margin: 0;
+  max-width: 320px;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.lecturer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fbfcff;
+}
+
+/* Player video in-page. Rasio 16:9 supaya videonya tidak gepeng di
+   layar sempit, dan `background` gelap supaya letterbox-nya tidak
+   putih menyilaukan. */
+.lecturer-video-player {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  background: #0f172a;
+  display: block;
+}
+
+.lecturer-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lecturer-card-head strong {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: #1e293b;
+  overflow-wrap: anywhere;
+}
+
+.lecturer-card-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* Tombol muat detail laporan — mengambil ulang isi laporan dari backend
+   (GET /api/lecturer/reports/<id>/) karena daftar laporan bisa masih
+   menampilkan ringkasan kosong selagi worker belum selesai menulis. */
+.lecturer-card-refresh {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border: 1px solid #c7d2fe;
+  border-radius: 7px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lecturer-card-refresh:hover:not(:disabled) {
+  background: #e0e7ff;
+}
+
+.lecturer-card-refresh:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.lecturer-card-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ffdfdc;
+  color: #bd2b2b;
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lecturer-code {
+  max-height: 260px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.6;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lecturer-summary {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.lecturer-summary dt {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: capitalize;
+  overflow-wrap: anywhere;
+}
+
+.lecturer-summary dd {
+  margin: 0;
+  color: #1e293b;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+/* Narasi ringkasan dari LLM — dibaca seperti paragraf, bukan monospace. */
+.lecturer-report-narrative {
+  margin: 0;
+  padding: 12px;
+  border-left: 3px solid #6366f1;
+  border-radius: 0 8px 8px 0;
+  background: #f5f3ff;
+  color: #312e81;
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.lecturer-report-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lecturer-report-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #1e293b;
+  font-size: 10px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.lecturer-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Tombol unduh memakai gaya ghost yang sudah ada, tapi sebagai <a> —
+   tanpa ini teksnya bergaris bawah bawaan tautan. */
+.lecturer-report-actions .lecturer-ghost-button {
+  text-decoration: none;
+}
+
+/* Badge amber untuk status "processing" — style.css hanya punya
+   red/blue/green, jadi warna peringatan ditambahkan di sini. */
+.badge.amber {
+  background: #fff4d6;
+  color: #b45309;
+}
+
+@media (max-width: 1100px) {
+  .lecturer-panel-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
-  .lecturer-container {
-    height: calc(100vh - 160px);
+  .lecturer-persona-select {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .lecturer-chat-header {
+    flex-wrap: wrap;
   }
 
   .lecturer-message {
     max-width: 100%;
+  }
+
+  .lecturer-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lecturer-course-select {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .lecturer-rag-toggle {
+    justify-content: center;
   }
 }

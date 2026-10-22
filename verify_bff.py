@@ -18,6 +18,9 @@ import urllib.error
 import urllib.request
 from http.cookiejar import CookieJar
 
+import stack_health
+import verify_lock
+
 # Alamat dashboard yang diuji. Bisa ditimpa lewat env var
 # ``ACADEMIA_BASE_URL`` supaya verifikasi bisa diarahkan ke instance
 # Django lain (mis. saat port 8010 sedang dipakai proses lain).
@@ -250,6 +253,13 @@ def poll_task(task_id: str, predicate, opener=None, timeout: float = 15.0):
     Fungsi ini menunggu (poll) sampai predicate terpenuhi, lalu
     mengembalikan dict tugas terakhir. Kalau waktu habis, mengembalikan
     nilai terakhir apa adanya supaya pemanggil bisa melaporkannya.
+
+    **Batas 15 detik bukan tebakan.** Dipakai untuk hal yang sama
+    persis (round-trip ``schedule_reminder`` -> ``reminder_job_id``
+    terisi) dan terukur **0.68 s**. Jadi kalau 15 s habis, bukan
+    "worker lambat" — itu worker yang **tidak hidup** atau **sibuk
+    dengan pekerjaan lain**. MenRaise timeout jadi 120 s hanya
+    memperpanjang distributorsian.
     """
     op = opener or _opener()
     deadline = time.monotonic() + timeout
@@ -268,7 +278,135 @@ def poll_task(task_id: str, predicate, opener=None, timeout: float = 15.0):
         time.sleep(0.4)
 
 
+def wait_for_responsive_worker(timeout: float = 60.0) -> bool:
+    """Tunggu sampai ada worker Celery yang **merespons**.
+
+    Preflight (``stack_health.check_worker``) sudah membedakan
+    "mati" dari "sibuk". Tapi "sibuk" bukan berarti "siap": kalau
+    worker sedang merender video 8 menit, bagian pengingat di bawah
+    akan menunggu ``reminder_job_id`` yang memang belum akan terisi --
+    dan enam check yang gagal itu **menyesatkan**, karena route-nya
+    benar.
+
+    Jadi sebelum menjalankan bagian pengingat, tunggu worker yang
+    benar-benar menjawab task. Yang diukur di stack ini: antrean
+    ``celery`` dijawab dalam **0.078 s**, ``reminders`` dalam
+    **0.38 s**. Jadi satu probe sudah cukup untuk membedakan
+    "antre" dari "sibuk".
+
+    Mengembalikan True kalau worker merespons dalam batas waktu.
+    """
+    deadline = time.monotonic() + timeout
+    antrean = list(stack_health.DEFAULT_PROBE_QUEUES)
+    percobaan = 0
+
+    while True:
+        percobaan += 1
+        for q in antrean:
+            hasil = stack_health._probe_queue(q)
+            if hasil.get("ok"):
+                if percobaan > 1:
+                    print(
+                        f"  worker merespons setelah {percobaan} percobaan "
+                        f"(antrean {q}, {hasil.get('latency')}s)"
+                    )
+                return True
+
+        if time.monotonic() >= deadline:
+            return False
+
+        # Worker yang sedang sibuk akan menjawab kalau task-nya selesai.
+        # Jeda 2 detik cukup: tidak membanjiri broker, tapi tidak
+        # menunggu lama juga.
+        time.sleep(2.0)
+
+
 def main() -> int:
+    # ---------------------------------------------------------------
+    # Kunci eksekusi: grup `audit`.
+    #
+    # Skrip ini **mengubah data** (POST /tasks/create/, PATCH,
+    # DELETE, sesi rekaman, dokumen RAG). Jadi dia harus bentrok
+    # dengan skrip `audit` lain -- yang juga mengubah data -- supaya
+    # tidak ada dua proses memutasikan database yang sama di waktu
+    # bersamaan.
+    #
+    # Skrip Node (`audit_ui_*.js`) memakai **protokol kunci yang sama**
+    # (lihat `verify_lock.py`), jadi keduanya saling memblokir --
+    # bukan dua sistem terpisah yang masing-masing tidak tahu yang
+    # lain.
+    #
+    # Dulu skrip ini **tidak punya kunci sama sekali**, padahal
+    # `docs/01-ARSITEKTUR.md` §10.1 mengklaim `verify_ui.py`
+    # memakai kunci eksklusif. Klaim itu salah: tidak ada satu pun
+    # skrip Python yang mengunci apa pun.
+    # ---------------------------------------------------------------
+    try:
+        lock = verify_lock.acquire_group_lock(
+            "verify_bff.py", group=verify_lock.AUDIT_GROUP
+        )
+    except verify_lock.LockBusy as exc:
+        print(f"\n  {exc}")
+        print(
+            "\n  Verifikasi dilewati karena backend sedang dipakai proses "
+            "lain.\n  Jalankan ulang setelah proses itu selesai."
+        )
+        return 2
+
+    try:
+        return _run()
+    finally:
+        lock.release()
+
+
+def _run() -> int:
+    # ---------------------------------------------------------------
+    # Preflight: cek stack yang dibutuhkan skrip ini hidup atau tidak.
+    #
+    # Bagian pengingat di bawah bergantung pada **worker Celery**:
+    # `reminder_job_id` ditulis worker, bukan route. Kalau broker mati,
+    # `dispatch()` jatuh ke fallback inline yang balikannya `id = None`,
+    # jadi `reminder_job_id` tidak pernah ditulis — dan enam check
+    # pengingat gagal padahal route-nya benar. Satu broker mati =
+    # enam pesan yang menyesatkan.
+    #
+    # Karena itu: gagal di awal, dengan pesan yang menyebut proses
+    # mana yang mati.
+    # ---------------------------------------------------------------
+    required = stack_health.REQUIRED_COMPONENTS.get("verify_bff.py", ())
+    results = stack_health.check_stack(required)
+    stack_health.report(results)
+    if stack_health.fail_if_unhealthy(results, "verify_bff.py"):
+        # Exit code 3 = "stack belum siap", bukan "test gagal".
+        # (Exit code 2 dipakai untuk "proses lain memegang kunci".)
+        return 3
+
+    # ---------------------------------------------------------------
+    # Gerbang kedua: worker **merespons**, bukan sekadar hidup.
+    #
+    # Preflight di atas sudah membedakan worker MATI dari worker
+    # SIBUK. Tapi "sibuk" bukan berarti "siap": bagian pengingat
+    # bergantung pada `reminder_job_id` yang ditulis worker, jadi
+    # worker yang sedang menggarap pekerjaan lain akan membuat
+    # check-nya gagal **padahal route-nya benar**.
+    #
+    # Batasnya 60 detik. Terukur: antrean `celery` dijawab dalam
+    # 0.078 s dan `reminders` dalam 0.38 s. Kalau 60 detik habis,
+    # worker memang sedang menggarap sesuatu yang panjang (misal
+    # render video) -- dan lebih baik berhenti di sini dengan
+    # pesan yang benar daripada enam check yang menipu.
+    # ---------------------------------------------------------------
+    print("\n=== 0b. Menunggu worker Celery merespons ===")
+    if not wait_for_responsive_worker(timeout=60.0):
+        print(
+            "  MATI  Worker Celery hidup tapi tidak menjawab task dalam 60 detik.\n"
+            "        Worker ini sedang menggarap pekerjaan yang panjang.\n"
+            "        Bagian pengingat TIDAK bisa diverifikasi sekarang —\n"
+            "        menunggu lebih lama tidak akan membantu."
+        )
+        return 3
+    print("  OK    worker menjawab task (siap dikerjakan)")
+
     # Satu opener dipakai supaya session + CSRF konsisten.
     op = _opener()
     op.open(BASE + "/", timeout=30).read()  # ambil cookie CSRF
@@ -523,6 +661,31 @@ def main() -> int:
     else:
         check("persona aktif tersedia", False, str(data)[:180])
 
+    print("\n=== 6b. Video — buat ulang job yang gagal ===")
+    # Retry harus bisa dipakai pada job video yang gagal: materinya diambil
+    # dari job lama di backend, jadi mahasiswa tidak perlu menyalin ulang
+    # teks panjang.
+    status, data = get("/api/lecturer/videos/", op)
+    videos = (data or {}).get("videos") or []
+    failed = [v for v in videos if v.get("status") == "failed"]
+
+    if failed:
+        failed_id = failed[0].get("id")
+        status, data = post(f"/api/lecturer/videos/{failed_id}/retry/", {}, op)
+        check("POST /api/lecturer/videos/<id>/retry/ membuat ulang video gagal",
+              status in (200, 201) and data.get("ok") is True,
+              f"-> {status} {str(data)[:180]}")
+        new_job = (data or {}).get("job") or {}
+        check("  -> job baru dibuat (job lama tidak ditimpa)",
+              bool(new_job.get("id")) and new_job.get("id") != failed_id,
+              f"-> {new_job.get('id')} vs {failed_id}")
+    else:
+        # Tidak ada job gagal di database — endpoint tetap harus-answer
+        # dengan benar (404 untuk id yang tidak ada), bukan 500.
+        status, data = post("/api/lecturer/videos/tidak-ada-000000000000/retry/", {}, op)
+        check("POST /api/lecturer/videos/<id>/retry/ menolak id tak dikenal",
+              status == 404, f"-> {status} {str(data)[:180]}")
+
     print("\n=== 7. Lecture — mulai & hentikan sesi ===")
     status, data = post("/api/lecture/start/", {"title": "Verifikasi BFF — Sesi Uji"}, op)
     check("POST /api/lecture/start/", status in (200, 201) and data.get("ok") is True,
@@ -640,6 +803,40 @@ def main() -> int:
               f"-> {status}")
         check("  -> sesi baru ada di daftar",
               any(s.get("id") == chat_id for s in sessions))
+
+        # Hapus sesi yang sama — endpoint yang dipakai tombol "Hapus
+        # riwayat" di UI. Sesi harus benar-benar hilang dari server,
+        # bukan cuma disembunyikan dari layar.
+        status, data = delete(f"/api/rag/chat/{chat_id}/delete/", op)
+        check("DELETE /api/rag/chat/<id>/delete/",
+              status == 200 and data.get("ok") is True,
+              f"-> {status} {str(data)[:180]}")
+
+        status, data = get("/api/rag/chat/sessions/", op)
+        sessions = (data or {}).get("sessions") or []
+        check("  -> sesi terhapus dari daftar",
+              not any(s.get("id") == chat_id for s in sessions))
+
+        status, data = get(f"/api/rag/chat/{chat_id}/", op)
+        check("  -> riwayat sesi terhapus (404)",
+              status == 404, f"-> {status}")
+
+        # Hapus lagi harus idempoten: backend membalas 404, tapi BFF
+        # harus tetap balik 200 — state akhir yang diinginkan (sesi
+        # tidak ada) sudah tercapai. Kalau 404 diteruskan apa adanya,
+        # user menekan "hapus" dua kali melihat error pada klik kedua.
+        status, data = delete(f"/api/rag/chat/{chat_id}/delete/", op)
+        check("DELETE .../delete/ idempoten (hapus dua kali)",
+              status == 200 and data.get("ok") is True,
+              f"-> {status} {str(data)[:180]}")
+
+        # Id yang salah bentuk harus ditolak sebelum menyentuh backend.
+        # ``$`` lolos ke path Django (``<str:...>`` cuma menolak ``/``)
+        # tapi ditolak ``_id_ok`` — inilah yang dicek.
+        status, data = delete("/api/rag/chat/bad$id/delete/", op)
+        check("DELETE .../delete/ menolak id tidak valid",
+              status == 400 and data.get("ok") is False,
+              f"-> {status} {str(data)[:120]}")
     else:
         check("POST /api/rag/chat/sessions/create/ mengembalikan id", False,
               str(data)[:180])
@@ -2110,4 +2307,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # Pesan preflight mengandung tanda baca non-ASCII; console Windows
+    # default-nya cp1252 dan bisa gagal tepat saat menjelaskan kenapa
+    # skrip tidak boleh jalan.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="backslashreplace")
     sys.exit(main())

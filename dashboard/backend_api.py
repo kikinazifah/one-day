@@ -19,11 +19,12 @@ diproteksi lewat pemeriksaan ``Origin``/``Referer`` (lihat
 """
 from __future__ import annotations
 
+import json as json_module
 import logging
 import os
 import threading
 import time
-from typing import NamedTuple
+from typing import Iterator, NamedTuple
 
 import httpx
 from django.conf import settings
@@ -40,6 +41,9 @@ TIMEOUT_LLM = 180.0  # chat AI Dosen: LLM + (opsional) konteks RAG
 # pendek. Timeout panjang hanya menambah jeda saat pengguna menekan
 # "Hentikan Rekaman".
 TIMEOUT_CHUNK = 60.0
+# Chat dokumen: satu giliran bisa melibatkan beberapa putaran LLM plus
+# penyimpanan dokumen, jadi timeoutnya sama dengan generate.
+TIMEOUT_CHAT = 360.0
 
 # Access token FastAPI berumur 30 menit (ACCESS_TOKEN_EXPIRE_MINUTES di .env).
 # Perbarui 60 detik lebih awal supaya tidak ada request yang memakai token
@@ -359,6 +363,148 @@ class DownloadedFile(NamedTuple):
     disposition: str | None
     status: int = 200
     headers: dict = {}
+
+
+class StreamedFile(NamedTuple):
+    """Berkas besar yang **dialirkan**, bukan dibUFFER di memori.
+
+    Bedanya dengan :class:`DownloadedFile` sangat penting untuk berkas
+    video: video ajar berukuran 39 MB. Kalau BFF membacanya seluruhnya ke
+    memori dulu (setelah :func:`download`), maka:
+
+    * **1 video = 39 MB di memori** — dan halaman AI Lecturer memuat
+      23 video, jadi **900 MB** terkunci di proses Django;
+    * koneksi browser ke BFF **tidak pernah selesai** — server sudah
+      kirim seluruh body tapi connection-nya ditahan. Akibatnya
+      ``waitUntil: "networkidle"`` di browser test tidak pernah tercapai
+      (terbukti: 23 video lewat BFF -> timeout; 23 video langsung ke
+      backend -> **548 ms**).
+
+    Yang benar: BFF meneruskan byte **sambil** meneruskannya ke browser
+    (chunk demi chunk), lalu menutup koneksi begitu berkas habis.
+    """
+
+    status: int
+    content_type: str
+    headers: dict
+    chunks: Iterator[bytes]
+
+
+def download_stream(
+    path: str,
+    *,
+    origin: bool = False,
+    headers: dict | None = None,
+    timeout: float = TIMEOUT_DOWNLOAD,
+) -> StreamedFile:
+    """Ambil berkas dari backend **tanpa** membacanya seluruhnya ke memori.
+
+    Mengembalikan objek :class:`StreamedFile` yang isinya iterator byte.
+    Response HTTP ke browser harus dibangun dari iterator itu (lihat
+    ``StreamingHttpResponse``) — kalau tidak, seluruh berkas tetap
+    terkumpul di memori.
+
+    Header ``Range`` diteruskan apa adanya, jadi ``206 Partial Content``
+    dan ``Content-Range`` dari backend ikut sampai ke browser. Tanpa itu,
+    pemutar video mengira berkas utuh yang dikirim dan seek di dalam
+    video rusak.
+    """
+    root = origin_url() if origin else base_url()
+    url = f"{root}{path}"
+
+    client = _client()
+    try:
+        context = client.stream(
+            "GET", url, headers={**_auth_header(), **(headers or {})}, timeout=timeout
+        )
+        response = context.__enter__()
+    except httpx.HTTPError as exc:
+        raise ApiError(503, f"Backend tidak terjangkau: {exc}") from exc
+
+    if response.status_code >= 400:
+        raw = response.read()
+        context.__exit__(None, None, None)
+        try:
+            payload = json_module.loads(raw)
+        except ValueError:
+            payload = raw[:300]
+        if isinstance(payload, dict) and "detail" in payload:
+            payload = payload["detail"]
+        raise ApiError(response.status_code, error_text(payload))
+
+    def iter_chunks() -> Iterator[bytes]:
+        try:
+            for chunk in response.iter_bytes():
+                if chunk:
+                    yield chunk
+        finally:
+            # Menutup koneksi ke backend saat browser selesai (atau
+            # memutuskan pergi). Tanpa ini, koneksi httpx menganggur
+            # sampai timeout.
+            context.__exit__(None, None, None)
+
+    return StreamedFile(
+        status=response.status_code,
+        content_type=response.headers.get(
+            "content-type", "application/octet-stream"
+        ),
+        headers={
+            key: value
+            for key, value in response.headers.items()
+            if key.lower() in ("content-range", "accept-ranges", "content-length")
+        },
+        chunks=iter_chunks(),
+    )
+
+
+def stream(
+    method: str,
+    path: str,
+    *,
+    json=None,
+    timeout: float = TIMEOUT_CHAT,
+) -> Iterator[bytes]:
+    """Panggil backend dan kembalikan isi stream-nya apa adanya.
+
+    Dipakai untuk Server-Sent Events: chat dokumen mengirim event
+    (``text``, ``tool_start``, ``document``, ``done``) sambil permintaannya
+    masih berjalan, dan browser harus menerimanya **satu per satu**. Jadi
+    respons tidak boleh dibaca seluruhnya di awal — itu akan mengembalikan
+    chat ke bentuk "form dengan langkah tambahan".
+
+    Errornya dilempar sebagai :class:`ApiError` seperti pada
+    :func:`request`, supaya pemanggil bisa menampilkan pesannya. Event
+    ``data:`` apa adanya diteruskan, tanpa diurai: formatnya adalah
+    kontrak antara backend dan browser.
+    """
+    url = f"{base_url()}{path}"
+    try:
+        with _client().stream(
+            method,
+            url,
+            json=json,
+            headers={**_auth_header()},
+            timeout=timeout,
+        ) as response:
+            if response.status_code >= 400:
+                # The body is still unread, so it has to be read explicitly
+                # before the error can be reported.
+                raw = response.read()
+                try:
+                    payload = json_module.loads(raw)
+                except ValueError:
+                    payload = raw[:300]
+                if isinstance(payload, dict) and "detail" in payload:
+                    payload = payload["detail"]
+                raise ApiError(response.status_code, error_text(payload))
+
+            for chunk in response.iter_bytes():
+                if chunk:
+                    yield chunk
+    except ApiError:
+        raise
+    except httpx.HTTPError as exc:
+        raise ApiError(503, f"Backend tidak terjangkau: {exc}") from exc
 
 
 def download(

@@ -100,14 +100,20 @@ AKADEMIA_API_PASSWORD = os.environ.get('AKADEMIA_API_PASSWORD', '')
 # Application definition
 
 INSTALLED_APPS = [
+    # `dashboard` harus PERTAMA: Django mencari perintah management dengan
+    # menelusuri app dalam urutan terbalik dan menimpa perintah bernama
+    # sama. Artinya perintah dari app pertama yang menang -- supaya
+    # `manage.py runserver` memakai `dashboard/management/commands/
+    # runserver.py` (backlog listen yang lebih besar), bukan yang bawaan
+    # Django. Lihat `dashboard/dev_server.py` untuk alasannya.
+    'dashboard',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    'dashboard',
 ]
 
 MIDDLEWARE = [
@@ -131,22 +137,26 @@ TEMPLATES = [
         # ``APP_DIRS: True`` memaksa Django memakai
         # ``django.template.loaders.cached.Loader`` — loader yang menyimpan
         # template hasil parse di memori proses dan **tidak** memeriksa
-        # ulang mtime file. Normalnya autoreloader (yang hidup kalau
-        # ``runserver`` TANPA ``--noreload``) memanggil ``loader.reset()``
-        # setiap file berubah, jadi cache-nya ikut segar.
+        # ulang mtime file.
         #
-        # Tapi repo ini menjalankan Django dengan ``--noreload``
-        # (``start_stack.ps1``), jadi autoreloader tidak pernah hidup dan
-        # cache template **tidak pernah di-reset** selama proses berjalan.
-        # Akibatnya: mengedit ``dashboard/templates/dashboard/home.html``
-        # tidak berefek sampai proses Django di-restart. Gejalanya
-        # menyesatkan — file di disk sudah benar, tapi halaman yang
-        # dilayani masih versi lama; dan kalau versi lama itu memanggil
-        # modul JS yang belum dimuat, halamannya blank.
+        # Loader cache itu **bisa** di-reset: autoreloader memancarkan
+        # ``file_changed`` untuk setiap file yang berubah, dan
+        # ``django/template/autoreload.py::template_changed`` memanggil
+        # ``reset_loaders()`` — yang memanggil ``loader.reset()`` pada
+        # tiap loader. Jadi di mode autoreload, cache template ikut segar.
         #
-        # Karena itu loader-nya ditulis eksplisit:
+        # Tapi repo ini **tidak** bergantung pada itu: loader ditulis
+        # eksplisit supaya edit template berlaku di SEMUA mode —
+        # autoreload, ``--noreload``, atau DEBUG dimatikan —
+        # tanpa harus restart proses Django:
         #   - DEBUG   → loader biasa (baca file tiap render, tanpa cache)
         #   - produksi → ``cached.Loader`` (template ter-cache, render cepat)
+        #
+        # Alasannya (2026-10-21): cache template yang basi punya gejala
+        # yang sangat menyesatkan — file di disk sudah benar, tapi halaman
+        # yang dilayani masih versi lama; dan kalau versi lama itu memanggil
+        # modul JS yang belum dimuat, halamannya blank. Gejala itu sulit
+        # dikaitkan ke cache template, karena tidak ada error sama sekali.
         #
         # Daftar loader harus sama dengan yang dipakai ``APP_DIRS: True``,
         # kalau tidak template di dalam app tidak ditemukan sama sekali.
@@ -226,6 +236,21 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+
+# Backlog listen untuk dev server.
+#
+# Django 4.2 memakai 10 (dari socketserver.TCPServer). Angka itu adalah
+# banyaknya koneksi yang boleh menunggu di antrean accept() -- dan saat
+# penuh, Windows membalas RST ke SYN yang datang, sehingga Chromium
+# melaporkan "ERR_CONNECTION_REFUSED" ke service worker / file statis
+# lokal. Gejalanya: halaman tampil setengah dan audit gagal padahal
+# aplikasinya sehat.
+#
+# 256 cukup untuk 5 browser audit yang jalan bersamaan. Bisa diubah lewat
+# .env (DJANGO_LISTEN_BACKLOG=<angka>); nilai tidak valid diabaikan dan
+# dipakai default 256. Lihat `dashboard/dev_server.py`.
+DJANGO_LISTEN_BACKLOG = os.environ.get('DJANGO_LISTEN_BACKLOG', '256')
 
 
 # Email

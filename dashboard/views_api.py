@@ -25,7 +25,7 @@ import logging
 import re
 from urllib.parse import unquote, urlparse
 
-from django.http import FileResponse, JsonResponse
+from django.http import FileResponse, JsonResponse, StreamingHttpResponse
 from django.utils.http import content_disposition_header
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -427,3 +427,71 @@ def document_agent(request, document_id: str):
         return _error(exc)
 
     return JsonResponse({"ok": True, **payload})
+
+
+# ---------------------------------------------------------------------------
+# CHAT DOKUMEN
+#
+# Chatnya adalah satu percakapan yang bisa membuat dokumen DAN mengubahnya.
+# Arti pesannya ditentukan oleh dokumennya: tanpa ``documentId`` itu brief
+# (dokumen dibuat dari situ), dengan ``documentId`` itu instruksi (dokumennya
+# yang diubah). Jadi user tidak perlu bilang "sekarang edit dong" —
+# keberadaan dokumen yang menentukan.
+#
+# Balasannya dialirkan sebagai Server-Sent Events: teks AI datang selagi
+# ditulis, dan tiap tool yang jalan dilaporkan. Kalau balasnya ditunggu
+# utuh, ini cuma form dengan langkah tambahan.
+# ---------------------------------------------------------------------------
+
+
+def _sse(payload: dict) -> bytes:
+    """Satu event Server-Sent Events."""
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+
+
+@require_POST
+@same_origin_json
+def document_chat(request):
+    """Satu giliran chat dokumen, dialirkan sebagai Server-Sent Events.
+
+    Token service tidak pernah sampai ke browser: browser menerima event
+    dari Django, Django meneruskannya dari FastAPI.
+    """
+    data = _json_body(request)
+    message = (data.get("message") or "").strip()
+    if not message:
+        return JsonResponse({"ok": False, "error": "Pesan tidak boleh kosong."}, status=400)
+
+    payload = {
+        "message": message,
+        "documentId": data.get("documentId"),
+        "title": data.get("title"),
+        "language": data.get("language") or "id",
+        "courseId": data.get("courseId"),
+        "history": data.get("history") or [],
+    }
+
+    def events():
+        try:
+            for chunk in backend_api.stream(
+                "POST", "/documents/chat", json=payload, timeout=backend_api.TIMEOUT_CHAT
+            ):
+                yield chunk
+        except ApiError as exc:
+            # Headers sudah terkirim, jadi error tidak bisa jadi status
+            # HTTP lagi — ia jadi event terakhir yang dibaca UI.
+            logger.warning("chat dokumen gagal: %s", exc)
+            yield _sse({"type": "error", "message": exc.detail})
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("chat dokumen gagal: %s", exc, exc_info=True)
+            yield _sse({"type": "error", "message": f"Gagal menjalankan perintah: {exc}"})
+
+    response = StreamingHttpResponse(
+        events(),
+        content_type="text/event-stream; charset=utf-8",
+    )
+    # Tanpa ini proxy di depan API akan menahan stream dan chat kehilangan
+    # sifat "langsung"-nya.
+    response["Cache-Control"] = "no-cache, no-transform"
+    response["X-Accel-Buffering"] = "no"
+    return response

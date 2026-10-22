@@ -45,6 +45,9 @@ urlpatterns = [
          name='api_document_blocks'),
     path('api/document/agent/<str:document_id>/', views_api.document_agent,
          name='api_document_agent'),
+    # Chat dokumen — satu percakapan yang bisa membuat dokumen dan
+    # mengubahnya. Balasannya dialirkan sebagai Server-Sent Events.
+    path('api/document/chat/', views_api.document_chat, name='api_document_chat'),
 
     # AI Lecturer (Dosen AI) — persona, chat, laporan mingguan, video ajar.
     path('api/lecturer/personas/', views_api_lecturer.lecturer_personas,
@@ -86,6 +89,8 @@ urlpatterns = [
          name='api_lecturer_video_create'),
     path('api/lecturer/videos/<str:job_id>/', views_api_lecturer.lecturer_video_detail,
          name='api_lecturer_video_detail'),
+    path('api/lecturer/videos/<str:job_id>/retry/', views_api_lecturer.lecturer_video_retry,
+         name='api_lecturer_video_retry'),
     path('api/lecturer/videos/<str:job_id>/file/', views_api_lecturer.lecturer_video_file,
          name='api_lecturer_video_file'),
 
@@ -194,6 +199,8 @@ urlpatterns = [
          name='api_rag_chat_history'),
     path('api/rag/chat/<str:session_id>/message/', views_api_gaps.rag_chat_message,
          name='api_rag_chat_message'),
+    path('api/rag/chat/<str:session_id>/delete/', views_api_gaps.rag_chat_session_delete,
+         name='api_rag_chat_session_delete'),
 
     # Notifikasi — daftar dan tandai sudah dibaca.
     path('api/notifications/', views_api_misc.notification_list, name='api_notification_list'),

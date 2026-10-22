@@ -26,8 +26,8 @@
             <div class="campus-card">
                 <div class="campus-icon material-symbols-outlined">school</div>
                 <div>
-                    <strong>Akademia Studio</strong>
-                    <p>Semester 6 • CS<br />Undergrad</p>
+                    <strong>Akademia AI</strong>
+                    <p data-profile-campus>Memuat data akun...</p>
                 </div>
             </div>
 
@@ -50,7 +50,7 @@
                     class="nav-item {% if active_page == 'reminder' %}active{% endif %}">
                     <span class="material-symbols-outlined">notifications_active</span>
                     <span>Reminder System</span>
-                    <span class="badge red">2</span>
+                    <span class="badge red" data-reminder-badge hidden></span>
                 </a>
                 <a href="{% url 'rag_assistant' %}" class="nav-item {% if active_page == 'rag' %}active{% endif %}">
                     <span class="material-symbols-outlined">manage_search</span>
@@ -71,10 +71,12 @@
             <div class="sidebar-footer">
                 <div class="token-card">
                     <div class="token-heading">
-                        <span>TOKEN KOMPUTASI</span><strong>84% Sisa</strong>
+                        <span>AKTIVITAS AKUN</span><strong data-activity-count>-</strong>
                     </div>
-                    <div class="token-progress"><span></span></div>
-                    <button type="button">Upgrade Kuota AI</button>
+                    <div class="token-progress"><span data-activity-bar></span></div>
+                    <button type="button" data-unavailable="Fitur upgrade kuota AI belum tersedia.">
+                        Upgrade Kuota AI
+                    </button>
                 </div>
                 <a href="#settings" class="footer-link">
                     <span class="material-symbols-outlined">settings</span>
@@ -108,15 +110,22 @@
                         <span class="live-dot"></span> Proses Aktif
                         <span class="badge blue">5</span>
                     </button>
-                    <button class="header-icon" type="button" aria-label="Notifikasi">
+                    <button class="header-icon" type="button" id="notificationBell"
+                        aria-label="Notifikasi" aria-expanded="false"
+                        aria-controls="notificationPanel">
                         <span class="material-symbols-outlined">notifications</span>
+                        <i style="display: none"></i>
                     </button>
                     <div class="user-profile">
-                        <div class="avatar">AF</div>
+                        <div class="avatar" data-profile-avatar>U</div>
                         <div class="user-details">
-                            <strong>Ahmad Fauzan</strong>
-                            <small>NIM 13521049</small>
+                            <strong data-profile-name>-</strong>
+                            <small data-profile-meta>-</small>
                         </div>
+                        <button type="button" class="user-profile-edit" id="editProfileButton"
+                            aria-label="Ubah profil" title="Ubah profil">
+                            <span class="material-symbols-outlined">edit</span>
+                        </button>
                     </div>
                 </div>
             </header>
@@ -126,7 +135,13 @@
             </div>
         </main>
     </div>
-    <script src="{% static 'dashboard/script.js' %}" defer></script>
+    <!-- UBAH PROFIL -->
+    {% include 'dashboard/_profile_panel.html' %}
+
+    <!-- NOTIFIKASI -->
+    {% include 'dashboard/_notification_panel.html' %}
+
+    {% include 'dashboard/_shared_scripts.html' %}
     {% block scripts %}{% endblock %}
 </body>
 

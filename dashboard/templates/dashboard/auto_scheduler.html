@@ -31,7 +31,7 @@
                 Ekspor Kalender
             </button>
             <button type="button" class="scheduler-btn scheduler-btn-primary" id="syncSiam">
-                <span id="syncIcon">⟳</span> Sinkronisasi SIAM
+                <span id="syncIcon">⟳</span> Sinkronisasi Jadwal
             </button>
         </div>
     </div>
@@ -48,22 +48,22 @@
         <article class="scheduler-metric">
             <span class="metric-icon">📚</span>
             <p>Beban Akademik</p>
-            <h3>21 SKS</h3>
-            <small>7 mata kuliah</small>
+            <h3 id="courseCount">—</h3>
+            <small id="courseCountNote">Memuat mata kuliah...</small>
         </article>
 
         <article class="scheduler-metric">
             <span class="metric-icon">⚠️</span>
             <p>Potensi Bentrok</p>
-            <h3 id="conflictCount">1 Peringatan</h3>
-            <small>Perlu ditinjau</small>
+            <h3 id="conflictCount">—</h3>
+            <small id="conflictNote">Memuat bentrok...</small>
         </article>
 
         <article class="scheduler-metric">
             <span class="metric-icon">📅</span>
             <p>Hari Efektif</p>
-            <h3>4 Hari</h3>
-            <small>Jadwal perkuliahan</small>
+            <h3 id="effectiveDayCount">—</h3>
+            <small id="effectiveDayNote">Jadwal perkuliahan</small>
         </article>
     </section>
 
@@ -116,8 +116,15 @@
                     </p>
 
                     <p class="scheduler-note">
-                        Demo frontend: proses scraping dan pembacaan PDF belum terhubung ke backend.
+                        Sinkronisasi dan pembacaan PDF berjalan lewat backend.
                     </p>
+
+                    <!-- DOKUMEN PERPUSTAKAAN -->
+                    <h4 class="scheduler-subheading">Dokumen Perpustakaan</h4>
+
+                    <div class="scheduler-doc-list" id="libraryDocList">
+                        <p class="scheduler-empty">Memuat dokumen...</p>
+                    </div>
                 </div>
             </article>
 
@@ -127,15 +134,12 @@
                         <h3>Smart Conflict Optimizer</h3>
                         <p>Deteksi bentrok jadwal</p>
                     </div>
-                    <span class="scheduler-warning-badge">1 Konflik</span>
+                    <span class="scheduler-warning-badge" id="conflictBadge">Memuat...</span>
                 </div>
 
                 <div class="scheduler-card-body">
-                    <div class="scheduler-conflict">
-                        <strong>Potensi irisan waktu terdeteksi!</strong>
-                        <p>
-                            Kuliah IF3110 berpotensi berbenturan dengan jadwal Praktikum Basis Data.
-                        </p>
+                    <div id="conflictList" class="scheduler-conflict-list">
+                        <p class="scheduler-empty">Memuat daftar bentrok...</p>
                     </div>
 
                     <h4 class="scheduler-subheading">Preferensi optimasi</h4>
@@ -156,10 +160,116 @@
                     </label>
 
                     <button type="button" class="scheduler-btn scheduler-btn-primary scheduler-full" id="optimizeBtn">
-                        ✨ Simulasikan Jadwal Alternatif
+                        ✨ Cari Jadwal Alternatif
                     </button>
 
                     <div id="optimizationResult" class="scheduler-result" hidden></div>
+                </div>
+            </article>
+
+            <article class="scheduler-card">
+                <div class="scheduler-card-heading">
+                    <div>
+                        <h3>Tambah Jadwal</h3>
+                        <p>Simpan kegiatan ke kalender</p>
+                    </div>
+                </div>
+
+                <div class="scheduler-card-body">
+                    <form id="scheduleForm" class="scheduler-form">
+                        {% csrf_token %}
+
+                        <label class="scheduler-field">
+                            <span>Judul</span>
+                            <input type="text" id="entryTitle" class="form-control"
+                                placeholder="Contoh: IF3110 — Kecerdasan Buatan" required>
+                        </label>
+
+                        <label class="scheduler-field">
+                            <span>Mata kuliah</span>
+                            <select id="entryCourse" class="form-control">
+                                <option value="">Tanpa mata kuliah</option>
+                            </select>
+                        </label>
+
+                        <div class="two-fields">
+                            <label class="scheduler-field">
+                                <span>Mulai</span>
+                                <input type="datetime-local" id="entryStart" class="form-control" required>
+                            </label>
+
+                            <label class="scheduler-field">
+                                <span>Selesai</span>
+                                <input type="datetime-local" id="entryEnd" class="form-control" required>
+                            </label>
+                        </div>
+
+                        <label class="scheduler-field">
+                            <span>Lokasi</span>
+                            <input type="text" id="entryLocation" class="form-control"
+                                placeholder="Contoh: Ruang A-201">
+                        </label>
+
+                        <label class="scheduler-field">
+                            <span>Deskripsi</span>
+                            <textarea id="entryDescription" class="form-control" rows="3"
+                                placeholder="Catatan singkat tentang kegiatan"></textarea>
+                        </label>
+
+                        <label class="scheduler-checkbox">
+                            <input type="checkbox" id="entryRecurring">
+                            Jadwal berulang mingguan
+                        </label>
+
+                        <button type="submit" class="scheduler-btn scheduler-btn-primary scheduler-full" id="entrySubmit">
+                            Simpan Jadwal
+                        </button>
+
+                        <p class="scheduler-note">
+                            Jadwal disimpan lewat backend FastAPI. Bentrok dihitung ulang setelah disimpan.
+                        </p>
+                    </form>
+                </div>
+            </article>
+
+            <article class="scheduler-card">
+                <div class="scheduler-card-heading">
+                    <div>
+                        <h3>Impor dari Portal Kampus</h3>
+                        <p>Tarik jadwal dari halaman SIAM</p>
+                    </div>
+                </div>
+
+                <div class="scheduler-card-body">
+                    <form id="scheduleImportForm" class="scheduler-form">
+                        {% csrf_token %}
+
+                        <label class="scheduler-field">
+                            <span>URL halaman jadwal</span>
+                            <input type="url" id="importUrl" class="form-control"
+                                placeholder="https://portal.kampus.ac.id/jadwal" required>
+                        </label>
+
+                        <label class="scheduler-field">
+                            <span>Mata kuliah (opsional)</span>
+                            <select id="importCourse" class="form-control">
+                                <option value="">Tanpa mata kuliah</option>
+                            </select>
+                        </label>
+
+                        <button type="submit" class="scheduler-btn scheduler-btn-outline scheduler-full" id="importSubmit">
+                            Mulai Import
+                        </button>
+
+                        <p class="scheduler-note" id="importStatus" role="status" aria-live="polite">
+                            Import berjalan di latar belakang. Status proses akan tampil di sini
+                            selama polling, dan jumlah entri yang masuk muncul setelah selesai.
+                        </p>
+
+                        <button type="button" class="scheduler-btn scheduler-btn-outline scheduler-full" id="reloadSchedule">
+                            ↻ Muat ulang
+                        </button>
+                    </form>
                 </div>
             </article>
 
@@ -255,23 +365,23 @@
                 <div class="material-heading">
                     <div class="material-badges">
                         <span class="material-badge" id="materialType">
-                            Kuliah Teori Wajib
+                            -
                         </span>
 
                         <span class="material-badge green" id="materialMeeting">
-                            ● Pertemuan Ke-8 (Hari Ini)
+                            ● -
                         </span>
 
                         <span class="material-badge gray" id="materialCode">
-                            IF3110
+                            -
                         </span>
                     </div>
 
-                    <h2 id="materialTitle">IF3110 — Kecerdasan Buatan</h2>
+                    <h2 id="materialTitle">-</h2>
 
                     <p class="material-meta">
-                        <span id="materialTime">◷ Selasa, 13:00–15:00 WIB</span>
-                        <span id="materialRoom">⌖ Ruang Lab R7602</span>
+                        <span id="materialTime">◷ -</span>
+                        <span id="materialRoom">⌖ -</span>
                     </p>
 
                     <p class="material-presence">
@@ -280,10 +390,10 @@
                 </div>
 
                 <div class="material-lecturer">
-                    <div class="lecturer-avatar" id="materialLecturerAvatar">BR</div>
+                    <div class="lecturer-avatar" id="materialLecturerAvatar">-</div>
 
                     <div>
-                        <strong id="materialLecturer">Dr. Eng. Ir. Budi</strong>
+                        <strong id="materialLecturer">-</strong>
                         <small>◉ Dosen AI Siap</small>
                     </div>
 
@@ -320,20 +430,17 @@
                     <!-- TOPIK -->
                     <section class="material-topic-card">
                         <div class="material-section-label">
-                            TOPIK SILABUS HARI INI (SESI 8)
+                            TOPIK SILABUS HARI INI
                         </div>
 
-                        <span class="material-version">Chromadb v0.4.22</span>
+                        <span class="material-version" id="materialVersion">-</span>
 
                         <h3 class="material-topic-title" id="materialTopic">
-                            Transformer Architecture, Multi-Head Attention,
-                            &amp; Positional Encoding
+                            -
                         </h3>
 
                         <p id="materialDescription">
-                            Membedah mekanisme Scaled Dot-Product Attention,
-                            representasi matriks Query, Key, Value, serta
-                            keunggulan komparatif terhadap arsitektur recurrent.
+                            Belum ada deskripsi materi.
                         </p>
                     </section>
 
@@ -341,58 +448,12 @@
                     <section class="material-section">
                         <div class="material-section-heading">
                             <strong>▤ Berkas Kuliah Terindeks RAG</strong>
-                            <span class="material-status">
-                                100% Siap RAG • 184 Chunks
+                            <span class="material-status" id="materialFileStatus">
+                                Belum ada berkas
                             </span>
                         </div>
 
-                        <div id="materialFiles" class="material-files">
-                            <div class="material-file">
-                                <div class="file-icon purple">▣</div>
-
-                                <div class="file-info">
-                                    <strong>IF3110_Sesi08_Transformer_Attention.pptx</strong>
-                                    <small>
-                                        48 Halaman Slide • 86 Chunks • Embeddings:
-                                        text-embedding-3-small
-                                    </small>
-                                </div>
-
-                                <button type="button" class="file-action">
-                                    ◎ Pratinjau
-                                </button>
-                            </div>
-
-                            <div class="material-file">
-                                <div class="file-icon red">▤</div>
-
-                                <div class="file-info">
-                                    <strong>Diktat_AI_Bab7_SequenceModels.pdf</strong>
-                                    <small>
-                                        Bab 7 Hal 120–154 • 62 Chunks • Hybrid BM25+Vector
-                                    </small>
-                                </div>
-
-                                <button type="button" class="file-action">
-                                    ↓ Unduh
-                                </button>
-                            </div>
-
-                            <div class="material-file">
-                                <div class="file-icon purple">♫</div>
-
-                                <div class="file-info">
-                                    <strong>Audio_Transcript_Sesi07_Review.txt</strong>
-                                    <small>
-                                        Sinkron Lecture Listener • Whisper Large v3 • 36 Chunks
-                                    </small>
-                                </div>
-
-                                <button type="button" class="file-action">
-                                    Transkripsi AI
-                                </button>
-                            </div>
-                        </div>
+                        <div id="materialFiles" class="material-files"></div>
                     </section>
 
                     <!-- RINGKASAN MATERI -->
@@ -400,24 +461,14 @@
                         <h3>♧ Cuplikan Intisari (AI Quick Summary)</h3>
 
                         <div id="materialSummary">
-                            <ul>
-                                <li>
-                                    <strong>Self-Attention:</strong>
-                                    Menghitung korelasi dinamis antar token tanpa
-                                    batasan jarak sekuensial.
-                                </li>
-                                <li>
-                                    <strong>Multi-Head:</strong>
-                                    Memberikan sejumlah representasi paralel
-                                    berdimensi berbeda.
-                                </li>
-                                <li>
-                                    <strong>Positional Encoding:</strong>
-                                    Menambahkan fungsi sinus dan kosinus agar
-                                    Transformer mengetahui posisi token.
-                                </li>
-                            </ul>
+                            <p>Belum ada ringkasan materi.</p>
                         </div>
+
+                        <label class="field-label" for="materialSummaryText">
+                            Rangkuman ujian
+                        </label>
+                        <textarea class="form-control" id="materialSummaryText" rows="4"
+                            placeholder="Tuliskan rangkuman materi untuk acronyms ujian..."></textarea>
                     </section>
 
                     <!-- TAB CATATAN -->
@@ -427,36 +478,38 @@
                         <div class="ln-audio">
                             <div class="ln-head">
                                 <div>
-                                    <span class="ln-eyebrow">● REKAMAN &amp; TRANSKRIPSI SESI LIVE TERAKHIR</span>
-                                    <h3 id="lnSessionTitle">
-                                        Pertemuan Ke-7: Sequence Modeling &amp; Attention Introduction
-                                    </h3>
+                                    <span class="ln-eyebrow">● REKAMAN &amp; TRANSKRIPSI SESI TERAKHIR</span>
+                                    <h3 id="lnSessionTitle">Belum ada sesi rekaman.</h3>
                                 </div>
 
                                 <div class="ln-status">
-                                    <span class="ln-status-success">● Audio berhasil diproses</span>
-                                    <span>Sinkron ke ChromaDB Vektor</span>
+                                    <span class="ln-status-success" id="lnSessionStatus">Belum ada data</span>
+                                    <span id="lnSessionDuration"></span>
                                 </div>
                             </div>
 
                             <div class="ln-player">
-                                <button type="button" id="lnPlay" aria-label="Putar audio">▶</button>
+                                <button type="button" id="lnPlay" aria-label="Putar audio"
+                                    disabled>▶</button>
 
                                 <div class="ln-audio-info">
-                                    <strong>Audio Perkuliahan Sesi 07</strong>
+                                    <strong id="lnAudioName">Transkrip Lecture Listener</strong>
                                     <small>Audio Timestamped</small>
-                                    <span id="lnAudioTime">01:34:20 / 01:45:00</span>
+                                    <span id="lnAudioTime">-</span>
                                 </div>
 
-                                <div class="ln-wave" aria-hidden="true">
-                                    ▂ ▅ ▃ ▇ ▄ ▆ ▂ ▇ ▅ ▃ ▆ ▂ ▄ ▇ ▃ ▅ ▂ ▆ ▄ ▇
+                                <div class="ln-progress" role="presentation">
+                                    <span id="lnProgressFill"></span>
                                 </div>
 
-                                <span class="ln-speed">1.25x</span>
+                                <button type="button" class="ln-speed" id="lnSpeed"
+                                    aria-label="Kecepatan pemutaran">1.0x</button>
+
+                                <audio id="lnAudio" preload="none"></audio>
                             </div>
 
                             <p class="ln-hint" id="lnAudioHint">
-                                File rekaman belum dihubungkan. Tampilan pemutar masih berupa demo.
+                                Rekam atau unggah berkas di Lecture Listener untuk melihat transkrip di sini.
                             </p>
                         </div>
 
@@ -469,40 +522,11 @@
                                         <span class="ln-ai-badge">Ekstraksi AI</span>
                                     </div>
 
-                                    <article class="ln-takeaway">
-                                        <div class="ln-take-head">
-                                            <h5>① Scaled Dot-Product Attention</h5>
-                                            <span>24:15</span>
-                                        </div>
-
-                                        <p>
-                                            Query berperan sebagai kata kunci pencarian, key sebagai label
-                                            informasi, dan value sebagai isi konten yang akan digunakan
-                                            oleh model.
+                                    <div id="lnTakeaways">
+                                        <p class="material-empty">
+                                            Belum ada segmen transkrip untuk ditampilkan.
                                         </p>
-
-                                        <blockquote>
-                                            <div>
-                                                <strong>❞ KUTIPAN MATERI</strong>
-                                                <span>24:15–24:58</span>
-                                            </div>
-                                            Pembagian dengan akar d_k membantu menstabilkan nilai hasil
-                                            perkalian titik sebelum diterapkan fungsi softmax.
-                                        </blockquote>
-                                    </article>
-
-                                    <article class="ln-takeaway">
-                                        <div class="ln-take-head">
-                                            <h5>② Multi-Head Attention</h5>
-                                            <span>52:40</span>
-                                        </div>
-
-                                        <p>
-                                            Multi-Head Attention memungkinkan model memperhatikan beberapa
-                                            representasi hubungan secara paralel, sehingga informasi yang
-                                            dipelajari menjadi lebih beragam.
-                                        </p>
-                                    </article>
+                                    </div>
                                 </section>
 
                                 <!-- Catatan pribadi -->
@@ -514,9 +538,9 @@
 
                                     <div class="ln-bookmark">
                                         <strong>★ Bookmark Saya</strong>
-                                        <p>
-                                            Ingat pelajari kembali rumus gradien softmax karena konsep ini
-                                            penting untuk memahami proses training model.
+                                        <p id="lnBookmarkText">
+                                            Belum ada bookmark. Tulis catatan lalu klik
+                                            "Simpan Catatan" untuk menyimpannya di backend.
                                         </p>
                                         <button type="button" id="lnEditBookmark">
                                             Tulis catatan
@@ -565,16 +589,16 @@
 
                                     <div class="ln-module">
                                         <span>◉ Lecture Listener</span>
-                                        <strong class="ln-green">Siap</strong>
+                                        <strong class="ln-green" id="lnModuleLecture">Memuat...</strong>
                                     </div>
 
                                     <div class="ln-module">
                                         <span>▤ RAG Vector Store</span>
-                                        <strong>Belum terhubung</strong>
+                                        <strong id="lnModuleRag">Memuat...</strong>
                                     </div>
 
                                     <div class="ln-module">
-                                        <span>▣ Flashcard Generator</span>
+                                        <span>▣ Document Creator</span>
                                         <strong class="ln-green">Siap digunakan</strong>
                                     </div>
                                 </section>
@@ -594,18 +618,10 @@
                     <section class="material-tab-panel" id="panel-assignments" hidden>
                         <h3>Tugas dan Kuis</h3>
 
-                        <div class="material-assignment">
-                            <div>
-                                <strong id="assignmentTitle">
-                                    Tugas Eksplorasi Multi-Head Attention
-                                </strong>
-
-                                <p id="assignmentDeadline">
-                                    Kamis, 24 Okt 17:00 WIB
-                                </p>
-                            </div>
-
-                            <span class="material-badge">Informasi</span>
+                        <div id="assignmentList" class="material-assignment-list">
+                            <p class="material-empty">
+                                Memuat daftar tugas...
+                            </p>
                         </div>
                     </section>
 
@@ -628,7 +644,7 @@
 
                             <form id="materialChatForm" class="material-question-form">
                                 <input type="text" id="materialChatInput"
-                                    placeholder="Jelaskan formula Multi-Head Attention" required>
+                                    placeholder="Tanyakan sesuatu tentang dokumen..." required>
 
                                 <button type="submit" aria-label="Kirim pertanyaan">
                                     ▶
@@ -636,16 +652,17 @@
                             </form>
 
                             <div class="material-answer">
-                                <strong>✧ Jawaban RAG (Similarity: 0.94):</strong>
+                                <strong id="materialRagHeading">✧ Jawaban RAG</strong>
 
                                 <div id="materialChatMessages" class="material-chat-messages">
                                     <div class="material-chat-bubble">
-                                        MultiHead(Q,K,V) = Concat(head_1, ..., head_h) W^O
+                                        Ajukan pertanyaan untuk mencari jawaban dari berkas
+                                        yang sudah terindeks.
                                     </div>
                                 </div>
 
-                                <small>⌁ Slide 08, Hlm 24 • Diktat AI Bab 7</small>
-                                <span class="material-verified">
+                                <small id="materialRagSources">Belum ada sumber.</small>
+                                <span class="material-verified" id="materialRagVerified" hidden>
                                     ✓ Terverifikasi Silabus
                                 </span>
                             </div>
@@ -670,7 +687,7 @@
 
                         <form id="materialChatFormPreview" class="material-question-form">
                             <input type="text" id="materialChatInputPreview"
-                                placeholder="Jelaskan formula Multi-Head Attention" required>
+                                placeholder="Tanyakan sesuatu tentang dokumen..." required>
 
                             <button type="submit" aria-label="Kirim pertanyaan">
                                 ▶
@@ -678,15 +695,16 @@
                         </form>
 
                         <div class="material-answer">
-                            <strong>✧ Jawaban RAG (Similarity: 0.94):</strong>
+                            <strong id="materialRagHeadingPreview">✧ Jawaban RAG</strong>
 
-                            <p>
-                                MultiHead(Q,K,V) = Concat(head_1, ..., head_h) W^O
+                            <p id="materialRagAnswerPreview">
+                                Ajukan pertanyaan untuk mencari jawaban dari berkas yang
+                                sudah terindeks.
                             </p>
 
-                            <small>⌁ Slide 08, Hlm 24 • Diktat AI Bab 7</small>
+                            <small id="materialRagSourcesPreview">Belum ada sumber.</small>
 
-                            <span class="material-verified">
+                            <span class="material-verified" id="materialRagVerifiedPreview" hidden>
                                 ✓ Terverifikasi Silabus
                             </span>
                         </div>
@@ -701,21 +719,21 @@
                     <section class="material-deadline-card">
                         <div class="material-deadline-heading">
                             <strong>◷ Tugas Terkait &amp; Deadline Aktif</strong>
-                            <span>H-2 Sisa Waktu</span>
+                            <span id="deadlineCountLabel">Memuat...</span>
                         </div>
 
                         <strong id="assignmentTitlePreview">
-                            Tugas Eksplorasi Multi-Head Attention
+                            Belum ada tugas aktif.
                         </strong>
 
-                        <p>
-                            Implementasi PyTorch attention matrix dari awal
-                            tanpa pustaka Hugging Face.
+                        <p id="assignmentDescriptionPreview">
+                            Tugas yang dibuat di Reminder System muncul di sini
+                            lengkap dengan tenggatnya.
                         </p>
 
                         <div class="material-deadline-time">
                             <strong id="assignmentDeadlinePreview">
-                                Kamis, 24 Okt 17:00 WIB
+                                -
                             </strong>
                             <span>Sinkron: Reminder System</span>
                         </div>
@@ -725,13 +743,14 @@
                     <section class="material-integrations">
                         <small>INTEGRASI MODUL EKOSISTEM AKADEMIA</small>
 
-                        <button type="button" class="material-integration-primary">
+                        <button type="button" class="material-integration-primary"
+                            id="openRagDocuments">
                             ▤ Buka Dokumen di RAG Assistant
                         </button>
 
                         <div class="material-integration-buttons">
-                            <button type="button">♫ Lecture Listener</button>
-                            <button type="button">✧ Dosen AI Chat</button>
+                            <button type="button" id="openLectureListener">♫ Lecture Listener</button>
+                            <button type="button" id="openAiLecturer">✧ Dosen AI Chat</button>
                         </div>
                     </section>
 
@@ -740,9 +759,8 @@
 
             <!-- FOOTER -->
             <footer class="material-detail-footer">
-                <span>
-                    ☁ Terakhir sinkronisasi SIAM Web Scraper:
-                    Hari ini 08:30 WIB (Status 200 OK)
+                <span id="materialSyncNote">
+                    Jadwal diambil dari backend.
                 </span>
 
                 <div>
@@ -750,11 +768,39 @@
                         Tutup
                     </button>
 
+                    <button type="button" class="material-delete-button" id="deleteScheduleEntry" hidden>
+                        🗑 Hapus Jadwal
+                    </button>
+
                     <button type="button" class="material-save-button" id="saveMaterialSummary">
                         ▣ Simpan ke Rangkuman Ujian
                     </button>
                 </div>
             </footer>
+
+            <!-- KOREKSI TAG MATA KULIAH -->
+            <!--
+                Auto-tag menebak mata kuliah dari isi entri; kalau tebakannya
+                salah, pengguna harus bisa memperbaikinya sendiri (spec 3.6:
+                "Pengguna dapat mengoreksi tag"). Picker ini mengirim
+                ``course_id`` lewat PATCH /schedule/<id>/.
+            -->
+            <section class="material-tag-editor" id="materialTagEditor">
+                <label class="scheduler-field" for="materialCourseSelect">
+                    <span>Mata kuliah untuk entri ini</span>
+                    <select id="materialCourseSelect" class="form-control">
+                        <option value="">Tanpa mata kuliah</option>
+                    </select>
+                </label>
+
+                <button type="button" class="scheduler-btn scheduler-btn-outline" id="saveMaterialCourse">
+                    Simpan Tag
+                </button>
+
+                <p class="scheduler-note" id="materialTagNote" role="status" aria-live="polite">
+                    Tag hasil otomatis bisa dikoreksi di sini.
+                </p>
+            </section>
 
         </section>
     </div>

@@ -15,6 +15,7 @@ Alur AI Lecturer (Dosen AI):
     browser ──GET  /api/lecturer/videos/───────────▶ Django ──▶ FastAPI /lecturer/videos
     browser ──POST /api/lecturer/videos/generate/─▶ Django ──▶ FastAPI /lecturer/videos/generate
     browser ──GET  /api/lecturer/videos/<id>/──────▶ Django ──▶ FastAPI /lecturer/videos/<id>
+    browser ──POST /api/lecturer/videos/<id>/retry/▶ Django ─▶ FastAPI /lecturer/videos/<id>/retry
     browser ──GET  /api/lecturer/videos/<id>/file/─▶ Django ──▶ FastAPI /videos/<id>.mp4 (root)
 
 Pola view mengikuti ``dashboard/views_api.py``: dekorator ``same_origin_json``,
@@ -26,7 +27,7 @@ from __future__ import annotations
 import logging
 import re
 
-from django.http import FileResponse, JsonResponse
+from django.http import FileResponse, JsonResponse, StreamingHttpResponse
 from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
@@ -541,6 +542,35 @@ def lecturer_video_create(request):
     )
 
 
+@require_POST
+@same_origin_json
+def lecturer_video_retry(request, job_id: str):
+    """Buat ulang video yang gagal.
+
+    Materinya diambil dari job lama di backend, jadi mahasiswa tidak perlu
+    menyalin ulang teks yang panjang. Kalau naskahnya masih tersimpan,
+    backend me-render ulang tanpa memanggil LLM lagi.
+    """
+    cleaned = (job_id or "").strip()
+    if not cleaned or len(cleaned) > 64 or not _JOB_ID_RE.fullmatch(cleaned):
+        return JsonResponse({"ok": False, "error": "Id job tidak valid."}, status=400)
+
+    try:
+        result = backend_api.request("POST", f"/lecturer/videos/{cleaned}/retry")
+    except ApiError as exc:
+        logger.warning("buat ulang video %s gagal: %s", cleaned, exc)
+        return _error(exc)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "message": result.get("message", "Video sedang dibuat ulang."),
+            "job": result.get("job") or {},
+        },
+        status=201,
+    )
+
+
 @require_GET
 @same_origin_json
 def lecturer_video_detail(request, job_id: str):
@@ -562,6 +592,19 @@ def lecturer_video_file(request, job_id: str):
     Backend menulis video ke ``VIDEO_DIR`` dan melayaninya lewat static mount
     ``/videos`` di root, jadi URL-nya harus dibangun dari origin backend —
     bukan dari base URL API.
+
+    **Berkas dialirkan, bukan dibUFFER.** Video ajar berukuran ~39 MB dan
+    halaman AI Lecturer memuat 23 video sekaligus. Kalau BFF membaca
+    seluruh berkas ke memori dulu (``backend_api.download``), maka:
+
+    * **900 MB** terkunci di proses Django, dan
+    * koneksi browser **tidak pernah selesai** — server sudah mengirim
+      seluruh body tapi connection-nya ditahan. Akibatnya
+      ``waitUntil: "networkidle"`` di browser test tidak pernah tercapai.
+
+    Terukti lewat pengukuran: 23 video lewat BFF -> timeout 30 detik;
+    23 video langsung ke backend -> **548 ms**. Karena itu view ini
+    memakai ``backend_api.download_stream`` + ``StreamingHttpResponse``.
     """
     try:
         job = backend_api.request("GET", f"/lecturer/videos/{job_id}")
@@ -578,24 +621,21 @@ def lecturer_video_file(request, job_id: str):
         )
 
     try:
-        file = backend_api.download(
+        file = backend_api.download_stream(
             f"/videos/{filename}", origin=True, headers=_range_headers(request)
         )
     except ApiError as exc:
         logger.warning("unduh video gagal: %s", exc)
         return _error(exc)
 
-    response = FileResponse(
-        iter([file.content]),
+    response = StreamingHttpResponse(
+        file.chunks,
         content_type=file.content_type or VIDEO_MEDIA,
-        filename=filename,
-        as_attachment=False,
         # Teruskan status dari backend apa adanya — 206 kalau browser
         # meminta sebagian berkas (Range), 200 kalau minta utuh.
         status=file.status,
     )
-    # FileResponse hanya menulis Content-Disposition kalau isinya file-like
-    # (punya .read()); di sini isinya iterator byte, jadi header diset manual.
+
     # ``?download=1`` memaksa unduhan; tanpa itu file dibuka inline (diputar).
     as_attachment = request.GET.get("download") in ("1", "true", "yes")
     response["Content-Disposition"] = content_disposition_header(
@@ -604,8 +644,8 @@ def lecturer_video_file(request, job_id: str):
 
     # Teruskan header range apa adanya — pola yang sama dengan endpoint
     # rekaman audio. Tanpa ini, ``<video preload="metadata">`` akan
-    # meminta seluruh berkas (36 MB!) sebelum halaman selesai memuat, dan
-    # `waitUntil: "networkidle"` di browser test tidak pernah tercapai.
+    # meminta seluruh berkas (39 MB!) sebelum halaman selesai memuat, dan
+    # seek di dalam video rusak.
     for key, value in file.headers.items():
         if key.lower() == "content-length":
             continue

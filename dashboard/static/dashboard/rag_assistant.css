@@ -40,6 +40,60 @@
 }
 
 /* =====================================================
+   TOMBOL HAPUS RIWAYAT CHAT
+   ===================================================== */
+
+/* Ditarik ke kanan supaya tidak menabrak judul panel. `margin-left: auto`
+   dipakai oleh `.lecturer-ghost-button` di `ai_lecturer.css` — pola yang
+   sama, bukan class baru, karena `ai_lecturer.css` tidak dimuat di
+   halaman ini. */
+.rag-ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-left: auto;
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: #66718a;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+/*
+ * Aturan `display` di atas menimpa atribut `hidden` — user-agent
+ * stylesheet cuma memberi `[hidden] { display: none }`, dan stylesheet
+ * penulis selalu menang atas user-agent. Akibatnya tombolnya tetap
+ * terlihat padahal JS sudah menyembunyikannya.
+ *
+ * Pola yang sama dipakai di `lecture_listener.css` untuk
+ * `.live-indicator[hidden]`.
+ */
+.rag-ghost-button[hidden] {
+  display: none;
+}
+
+.rag-ghost-button:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.rag-ghost-button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.rag-ghost-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* =====================================================
    CHIP PERTANYAAN SIAP-PAKAI
    ===================================================== */
 
