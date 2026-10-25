@@ -61,10 +61,12 @@
         continue;
       }
 
-      const heading = /^#{1,6}\s+(.*)$/.exec(line);
+      const heading = /^(#{1,6})\s+(.*)$/.exec(line);
       if (heading) {
         flush();
-        blocks.push({ kind: "h", text: heading[1] || "" });
+        // Level (#) disimpan supaya CSS bisa membedakan ukuran — tanpa ini
+        // `##` dan `####` sama besarnya, hierarki judul hilang.
+        blocks.push({ kind: "h", level: heading[1].length, text: heading[2] || "" });
         continue;
       }
 
@@ -176,7 +178,9 @@
     parseBlocks(text).forEach(function (block) {
       if (block.kind === "h") {
         const paragraph = document.createElement("p");
-        paragraph.className = "ai-md-h";
+        // `ai-md-h` dipertahankan untuk CSS lama (document_creator);
+        // `ai-md-hN` menambah tingkat spesifik halaman.
+        paragraph.className = "ai-md-h ai-md-h" + Math.min(block.level || 3, 6);
         renderInline(block.text, paragraph, nav);
         root.appendChild(paragraph);
         return;

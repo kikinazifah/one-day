@@ -5,6 +5,9 @@
 {% block page_label %}AI Lecturer (Dosen AI){% endblock %}
 
 {% block scripts %}
+{# ai_markdown.js dulu (bukan defer): agar `window.AIMarkdown` sudah ada
+   saat ai_lecturer.js (defer) mengeksekusi dan merender balasan. #}
+<script src="{% static 'dashboard/ai_markdown.js' %}"></script>
 <script src="{% static 'dashboard/ai_lecturer.js' %}" defer></script>
 {% endblock %}
 
@@ -59,7 +62,7 @@
             </div>
 
             <div class="lecturer-chat-body" id="lecturerChat" aria-live="polite">
-                <div class="lecturer-date-label"><span>PERCakapan BARU</span></div>
+                <div class="lecturer-date-label"><span>PERCAKAPAN BARU</span></div>
                 <article class="lecturer-message lecturer-message-ai">
                     <div class="lecturer-message-avatar"><span class="material-symbols-outlined">auto_awesome</span>
                     </div>

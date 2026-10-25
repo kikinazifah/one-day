@@ -33,18 +33,10 @@
   overflow-wrap: anywhere;
 }
 
-.lecturer-message.user {
-  align-self: flex-end;
-  flex-direction: row-reverse;
-}
-
-.lecturer-message.assistant {
-  align-self: flex-start;
-}
-
-.lecturer-message.user .lecturer-message-avatar {
-  background: #e0e7ff;
-  color: #4338ca;
+/* Pertanyaan pengguna tidak lagi berisi <p>, jadi `pre-wrap` bawaan tidak
+   berlaku — baris yang ditulis dengan Shift+Enter harus tetap tampil. */
+.lecturer-message-user .lecturer-bubble {
+  white-space: pre-wrap;
 }
 
 .lecturer-message .lecturer-bubble p {
@@ -99,6 +91,100 @@
   margin: 0;
   color: #64748b;
   font-style: italic;
+}
+
+/* ------------------------------------------------- MARKDOWN BALASAN AI */
+/* Balasan Dosen AI dirender `ai_markdown.js` menjadi `<div class="ai-md">`
+   di dalam bubble. Gaya di bawah ini melengkapi `.lecturer-bubble`:
+   paragraf, daftar bernomor/butir, dan hierarki judul. Tanpa blok ini
+   jawaban tampil sebagai teks mentah (`##`, `1.`, `- ` ikut terbaca). */
+
+.lecturer-bubble .ai-md {
+  white-space: normal;
+}
+
+.lecturer-bubble .ai-md p,
+.lecturer-bubble .ai-md ul,
+.lecturer-bubble .ai-md ol {
+  margin: 0 0 10px;
+  white-space: normal;
+}
+
+.lecturer-bubble .ai-md > :last-child {
+  margin-bottom: 0;
+}
+
+/* Paragraf kosong dari teks yang belum selesai — jangan makan jarak. */
+.lecturer-bubble .ai-md p:empty {
+  display: none;
+}
+
+.lecturer-bubble .ai-md ul,
+.lecturer-bubble .ai-md ol {
+  padding-left: 20px;
+}
+
+.lecturer-bubble .ai-md ul {
+  list-style: disc;
+}
+
+.lecturer-bubble .ai-md ol {
+  list-style: decimal;
+}
+
+.lecturer-bubble .ai-md li {
+  margin: 3px 0;
+  line-height: 1.7;
+}
+
+.lecturer-bubble .ai-md li::marker {
+  color: #94a3b8;
+}
+
+/* Hierarki judul di dalam bubble (body 13px):
+   h1 16px > h2 15px > h3 14px > h4+ 13px tebal. */
+.lecturer-bubble .ai-md .ai-md-h {
+  font-weight: 800;
+  line-height: 1.4;
+  color: #0f172a;
+  margin-top: 14px;
+  margin-bottom: 6px;
+}
+
+.lecturer-bubble .ai-md .ai-md-h:first-child {
+  margin-top: 0;
+}
+
+.lecturer-bubble .ai-md .ai-md-h1 {
+  font-size: 16px;
+}
+
+.lecturer-bubble .ai-md .ai-md-h2 {
+  font-size: 15px;
+}
+
+.lecturer-bubble .ai-md .ai-md-h3 {
+  font-size: 14px;
+}
+
+.lecturer-bubble .ai-md .ai-md-h4,
+.lecturer-bubble .ai-md .ai-md-h5,
+.lecturer-bubble .ai-md .ai-md-h6 {
+  font-size: 13px;
+}
+
+/* Kode sebaris: chip indigo mengikuti aksen halaman. */
+.lecturer-bubble .ai-md code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 11.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.lecturer-bubble .ai-md strong {
+  color: #1e293b;
 }
 
 /* ----------------------------------------------------------------- TOOLBAR */

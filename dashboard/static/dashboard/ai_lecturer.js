@@ -164,18 +164,61 @@ document.addEventListener("DOMContentLoaded", () => {
   // =====================================================
 
   function addMessage(text, sender) {
+    const isUser = sender === "user";
+
     const message = document.createElement("div");
-    message.className =
-      sender === "user"
-        ? "lecturer-message user"
-        : "lecturer-message assistant";
+    // Kelas harus `lecturer-message-user` / `lecturer-message-ai` —
+    // style.css hanya mengenali itu (bubble indigo vs bubble abu).
+    // Kelas lama "user"/"assistant" tidak punya rule sama sekali, jadi
+    // pesan pernah tampil tanpa bubble dan tanpa nama pengirim.
+    message.className = isUser
+      ? "lecturer-message lecturer-message-user"
+      : "lecturer-message lecturer-message-ai";
 
-    const content = document.createElement("p");
-    // textContent sudah escaped browser — tidak ada HTML dari server yang
-    // dieksekusi.
-    content.textContent = text;
+    const avatar = document.createElement("div");
+    avatar.className = "lecturer-message-avatar";
+    const avatarIcon = document.createElement("span");
+    avatarIcon.className = "material-symbols-outlined";
+    avatarIcon.textContent = isUser ? "person" : "auto_awesome";
+    avatar.append(avatarIcon);
 
-    message.append(content);
+    const content = document.createElement("div");
+    content.className = "lecturer-message-content";
+
+    const name = document.createElement("div");
+    name.className = "lecturer-message-name";
+    if (isUser) {
+      name.textContent = "Kamu";
+    } else {
+      name.append(document.createTextNode("Dosen AI "));
+      const badge = document.createElement("span");
+      badge.className = "lecturer-ai-badge";
+      badge.textContent = "AI ASSISTANT";
+      name.append(badge);
+    }
+
+    const bubble = document.createElement("div");
+    bubble.className = "lecturer-bubble";
+    if (isUser) {
+      // Pertanyaan mahasiswa tampil apa adanya (pre-wrap mempertahankan
+      // spasi/enter yang diketik), tanpa parse markdown.
+      bubble.textContent = text;
+    } else {
+      // Balasan Dosen AI dirender markdown. AIMarkdown membangun elemen
+      // lewat textContent (bukan innerHTML), jadi teks dari model tidak
+      // pernah jadi markup — aman dari XSS. Kalau skrip markdown belum
+      // termuat (urutan load), fallback ke teks biasa + pre-wrap supaya
+      // tidak ada jawaban yang hilang.
+      if (window.AIMarkdown && typeof window.AIMarkdown.render === "function") {
+        bubble.append(window.AIMarkdown.render(String(text == null ? "" : text), null));
+      } else {
+        bubble.style.whiteSpace = "pre-wrap";
+        bubble.textContent = text;
+      }
+    }
+
+    content.append(name, bubble);
+    message.append(avatar, content);
     chat.append(message);
     chat.scrollTop = chat.scrollHeight;
     return message;
@@ -240,13 +283,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function addTyping() {
     const typing = document.createElement("div");
-    typing.className = "lecturer-message assistant lecturer-typing";
+    typing.className =
+      "lecturer-message lecturer-message-ai lecturer-typing";
     typing.id = "lecturerTyping";
 
-    const content = document.createElement("p");
-    content.textContent = "Mengetik…";
+    const avatar = document.createElement("div");
+    avatar.className = "lecturer-message-avatar";
+    const avatarIcon = document.createElement("span");
+    avatarIcon.className = "material-symbols-outlined";
+    avatarIcon.textContent = "auto_awesome";
+    avatar.append(avatarIcon);
 
-    typing.append(content);
+    const content = document.createElement("div");
+    content.className = "lecturer-message-content";
+    const bubble = document.createElement("div");
+    bubble.className = "lecturer-bubble";
+    const label = document.createElement("p");
+    label.textContent = "Mengetik…";
+    bubble.append(label);
+    content.append(bubble);
+
+    typing.append(avatar, content);
     chat.append(typing);
     chat.scrollTop = chat.scrollHeight;
     return typing;
