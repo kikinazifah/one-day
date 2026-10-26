@@ -191,6 +191,18 @@ if (-not $apiReady) {
 # Kalau Redis tidak ada di PATH, script tetap jalan (worker akan
 # reconnect sendiri begitu Redis-nya hidup), tapi peringatan dicetak
 # supaya masalahnya kelihatan, bukan misterius.
+#
+# Start Redis DENGAN RETRY. Terbukti saat logon (26 Okt 2026): proses
+# redis-server yang dibuka tepat saat logon bisa **menggantung sebelum
+# bind port** — proses terlihat "hidup" (CPU nyaris nol, RSS ~3 MB)
+# tapi portnya tidak pernah LISTENING. Dengan percobaan tunggal, script
+# menunggu 15 detik, gagal, lalu — di percobaan pertama itu — sempat
+# juga membuang proses yang lambat, TANPA start ulang: hasilnya Redis
+# "Running" versi proses yang mati-sedang dan broker benar-benar tidak
+# ada. Loop ini memastikan setiap kegagalan berujung ke start baru,
+# dan proses gantung dibersihkan dulu supaya tidak menumpuk.
+$RedisMaxTry = 3      # didefinisikan di sini juga: dipakai blok error di bawah
+$RedisWaitSec = 15     # walau redis-server tidak ada di PATH
 $redisReady = Test-Port $RedisPort
 if ($redisReady) {
     Write-Host "OK: Redis sudah running di port $RedisPort" -ForegroundColor Green
@@ -198,14 +210,45 @@ if ($redisReady) {
     $redisExe = Get-Command redis-server -ErrorAction SilentlyContinue
 
     if ($redisExe) {
-        Start-ProcessInNewWindow -Cmd "redis-server --port $RedisPort --save `"`" --appendonly no" -Title "Redis Server"
-        $redisReady = Wait-ForPort -Port $RedisPort -Name "Redis" -TimeoutSec 15
+        for ($try = 1; $try -le $RedisMaxTry -and -not $redisReady; $try++) {
+            # Bersihkan sisa yang menggantung untuk port ini (kalau tidak
+            # ada, tidak ada yang terbunuh). Karena portnya TIDAK
+            # listening (syarat masuk blok ini), proses redis yang ada
+            # dijamin bukan instance sehat yang sedang melayani.
+            Get-CimInstance Win32_Process -Filter "Name='redis-server.exe'" |
+                Where-Object { $_.CommandLine -match [regex]::Escape("--port $RedisPort") } |
+                ForEach-Object {
+                    Write-Host "[WARN] Mematikan redis-server gantung (pid $($_.ProcessId), port $RedisPort tidak listening)" -ForegroundColor Yellow
+                    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+                }
+            # Jendela konsolnya ikut ditutup — /k membuat window tetap
+            # hidup setelah proses anaknya mati.
+            Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" |
+                Where-Object { $_.CommandLine -match 'title Redis Server' } |
+                ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+
+            Start-ProcessInNewWindow -Cmd "redis-server --port $RedisPort --save `"`" --appendonly no" -Title "Redis Server"
+            $redisReady = Wait-ForPort -Port $RedisPort -Name "Redis (percobaan $try/$RedisMaxTry)" -TimeoutSec $RedisWaitSec
+            if ($redisReady -and $try -gt 1) {
+                Write-Host "OK: Redis berhasil start pada percobaan ke-$try" -ForegroundColor Green
+            }
+            if (-not $redisReady) {
+                Write-Host "[WARN] Redis belum listening dalam $RedisWaitSec detik" -ForegroundColor Yellow
+            }
+        }
     } else {
         Write-Host "[WARN] Redis tidak ditemukan di PATH." -ForegroundColor Yellow
         Write-Host "       Worker Celery butuh Redis sebagai broker. Install:" -ForegroundColor Yellow
         Write-Host "       winget install Redis.Redis" -ForegroundColor Yellow
         Write-Host "       Lalu jalankan ulang script ini." -ForegroundColor Yellow
     }
+}
+
+if (-not $redisReady) {
+    # $RedisMaxTry didefinisikan di atas, di luar blok if — aman untuk PS 5.1.
+    Write-Host "[ERROR] Redis port $RedisPort TIDAK available setelah $RedisMaxTry percobaan" -ForegroundColor Red
+    Write-Host "        Celery tanpa broker = pengingat/tugas tidak pernah jalan." -ForegroundColor Red
+    Write-Host "        Jalankan manual dulu: redis-server --port $RedisPort" -ForegroundColor Yellow
 }
 
 # ─── 3. Start Celery Workers (DUA worker) ─────────────────────
