@@ -222,9 +222,12 @@ if ($redisReady) {
                     Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
                 }
             # Jendela konsolnya ikut ditutup — /k membuat window tetap
-            # hidup setelah proses anaknya mati.
+            # hidup setelah proses anaknya mati. HARUS di-scope ke port:
+            # judul "Redis Server" dipakai semua instance, tanpa cek
+            # --port jendela redis port lain (mis. 6380) ikut terbunuh.
             Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" |
-                Where-Object { $_.CommandLine -match 'title Redis Server' } |
+                Where-Object { $_.CommandLine -match 'title Redis Server' -and
+                               $_.CommandLine -match [regex]::Escape("--port $RedisPort") } |
                 ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
             Start-ProcessInNewWindow -Cmd "redis-server --port $RedisPort --save `"`" --appendonly no" -Title "Redis Server"
