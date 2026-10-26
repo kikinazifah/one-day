@@ -165,6 +165,17 @@
        benar (memuat / gagal / memang kosong).
     {% endcomment %}
     <div id="sessionHistory" class="history-empty">Memuat riwayat sesi...</div>
+
+    {% comment %}
+       Baris yang sedang dibuka disorot (klas `is-selected`), dan catatan ini
+       menjelaskan cara membuka sesi lain. Tanpa ini, kembali ke halaman dari
+       navigasi membuat panel transkrip kosong tanpa petunjuk apa pun —
+       pengguna mengira rekamannya hilang.
+    {% endcomment %}
+    <p class="form-note" id="historyHint" hidden>
+        Klik judul sesi di atas untuk membukanya kembali — transkrip, ringkasan,
+        dan ekspor langsung pulih.
+    </p>
 </section>
 
 <div class="toast" id="toast" role="status"></div>

@@ -51,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const summarizeButton = document.getElementById("summarizeButton");
   const summarizeLabel = document.getElementById("summarizeLabel");
   const historyNode = document.getElementById("sessionHistory");
+  const historyHint = document.getElementById("historyHint");
 
   // Elemen live (FR-05).
   const liveIndicator = document.getElementById("liveIndicator");
@@ -91,6 +92,22 @@ document.addEventListener("DOMContentLoaded", () => {
   // Sesi terakhir yang berhasil dimuat. Disimpan supaya render ulang
   // selama reload tidak menghapus daftar yang sedang ditampilkan.
   let currentSessions = [];
+
+  // ---- State pemilihan sesi (pulih setelah ganti halaman) ----
+  //
+  // Navigasi dashboard adalah `<a href>` biasa: tiap klik menu = reload
+  // penuh, jadi `currentSessionId` (sebagai "sesi yang sedang ditampilkan")
+  // hilang dan panel transkrip kosong. Padahal ekspor & ringkasan juga
+  // membaca id yang sama — akibatnya kembali dari halaman lain membuat
+  // tombol ekspor menolak dengan "Rekaman atau unggah berkas dulu".
+  //
+  // `viewSessionId` = sesi yang sedang ditampilkan di panel (bisa berbeda
+  // dari `currentSessionId`, yang hanya berarti "sesi milik rekaman yang
+  // sedang berjalan"). Pemilihan terakhir ditulis ke sessionStorage supaya
+  // reload membukanya lagi.
+  const LAST_SESSION_KEY = "akademia.lectureLastSession";
+  let viewSessionId = null;
+  let restoreSeq = 0;
 
   // ---- State live (FR-05) ----
   // `capture` = instance LectureCapture (PCM) atau null kalau jatuh ke
@@ -437,8 +454,38 @@ document.addEventListener("DOMContentLoaded", () => {
       const body = document.createElement("div");
       body.className = "history-body";
 
+      // Judul berperan sebagai tombol "buka sesi ini" — jalur utama untuk
+      // mengembalikan transkrip setelah halaman direload saat ganti menu.
       const name = document.createElement("strong");
       name.textContent = session.title || "Sesi tanpa judul";
+
+      const isOpen = session.id === viewSessionId;
+      if (isOpen) row.classList.add("is-selected");
+      name.setAttribute("role", "button");
+      name.setAttribute("tabindex", "0");
+      name.setAttribute(
+        "aria-label",
+        (isOpen ? "Sedang dibuka: " : "Buka sesi ") + name.textContent,
+      );
+
+      const openSelected = () => {
+        if (recording || busy) {
+          // Membuka sesi lain di tengah rekaman/upload akan menimpa
+          // `currentSessionId` dan isi panel — proses yang sedang berjalan
+          // bisa menulis transkrip ke sesi yang salah.
+          showToast("Tunggu proses rekaman yang sedang berjalan selesai.");
+          return;
+        }
+        openSession(session.id);
+      };
+
+      name.addEventListener("click", openSelected);
+      name.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openSelected();
+        }
+      });
 
       const meta = document.createElement("span");
       meta.className = "history-meta";
@@ -476,6 +523,21 @@ document.addEventListener("DOMContentLoaded", () => {
           await deleteJson(
             "/api/lecture/" + encodeURIComponent(session.id) + "/delete/"
           );
+
+          // Sesi yang sedang dibuka ikut terhapus: jangan biarkan id mati
+          // tersimpan sebagai pilihan terakhir — reload berikutnya akan
+          // mencoba membuka sesi yang sudah tidak ada.
+          if (session.id === viewSessionId) {
+            viewSessionId = null;
+            if (currentSessionId === session.id) currentSessionId = null;
+            try {
+              sessionStorage.removeItem(LAST_SESSION_KEY);
+            } catch {
+              /* lihat rememberLastSession */
+            }
+            setHistoryHint(false);
+          }
+
           await loadSessions();
           showToast("Sesi rekaman dihapus.");
         } catch (error) {
@@ -1107,6 +1169,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     currentSessionId = data.session_id;
+
+    // Sesi rekaman baru menggantikan tampilan: panel jangan terus
+    // menampilkan transkrip sesi lama di bawah timer yang berjalan.
+    viewSessionId = currentSessionId;
+    rememberLastSession(currentSessionId);
+    renderHistory(currentSessions);
+    setHistoryHint(false);
+
     return data;
   }
 
@@ -1129,6 +1199,112 @@ document.addEventListener("DOMContentLoaded", () => {
       renderHistory(currentSessions);
     }
   }
+
+  // =====================================================
+  // PEMILIHAN & PEMULIHAN SESI
+  // =====================================================
+
+  /**
+   * Tampilkan sesi di panel: transkrip, segmen, ringkasan.
+   *
+   * `restoreSeq` menandai pemanggilan terbaru. Fetch tidak bisa dibatalkan,
+   * jadi tanpa penanda ini dua pemilihan cepat bisa saling menimpa —
+   * respons yang datang belakangan menulis isi sesi yang sudah tidak
+   * dipilih lagi.
+   */
+  async function openSession(sessionId, { persist = true } = {}) {
+    if (!sessionId) return;
+
+    const seq = ++restoreSeq;
+    viewSessionId = sessionId;
+    if (persist) rememberLastSession(sessionId);
+    renderHistory(currentSessions);
+    setHistoryHint(true);
+
+    try {
+      const data = await fetchTranscriptAndSummary(
+        sessionId,
+        () => seq === restoreSeq,
+      );
+      if (seq !== restoreSeq) return;
+
+      // `currentSessionId` ikut diset supaya ekspor & ringkasan memakai
+      // sesi yang sedang ditampilkan — itulah perilaku sebelum halaman
+      // direload, dan tanpa ini tombol ekspor menolak dengan pesan
+      // "Rekaman atau unggah berkas dulu".
+      if (!recording && !busy) currentSessionId = sessionId;
+
+      if (data.status && data.status !== "completed") {
+        showToast('Sesi "' + (data.title || sessionId) + '" masih ' + data.status + ".");
+      }
+    } catch (error) {
+      if (seq !== restoreSeq) return;
+      showToast(error.message);
+    }
+  }
+
+  /** Tampilkan/sembunyikan catatan cara membuka sesi lain. */
+  function setHistoryHint(visible) {
+    if (!historyHint) return;
+    historyHint.hidden = !visible;
+  }
+
+  function rememberLastSession(sessionId) {
+    try {
+      sessionStorage.setItem(LAST_SESSION_KEY, sessionId);
+    } catch {
+      // sessionStorage bisa diblokir (mode privasi) — bukan alasan gagal.
+    }
+  }
+
+  function readLastSession() {
+    try {
+      return sessionStorage.getItem(LAST_SESSION_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Pulihkan tampilan setelah halaman dimuat ulang (ganti menu).
+   *
+   * Urutannya: sesi yang terakhir dipilih pengguna → sesi terbaru di
+   * riwayat → biarkan kosong (belum ada sesi sama sekali).
+   *
+   * Peringatan: `currentSessionId` di sini **bukan** "sesi rekaman yang
+   * sedang berjalan" — kalau ada rekaman berjalan (tab sama, event kasar),
+   * sesi itu jangan dibuka ulang di panel.
+   */
+  async function restoreLastSession() {
+    const preferred = readLastSession();
+    let preferredId = null;
+
+    if (preferred && currentSessions.some((s) => s.id === preferred)) {
+      preferredId = preferred;
+    } else {
+      if (preferred) {
+        // Sesi pilihan terakhir sudah dihapus (mis. lewat tombol ×, atau
+        // tab lain) — lupakan, jangan mencoba membukanya lagi.
+        try {
+          sessionStorage.removeItem(LAST_SESSION_KEY);
+        } catch {
+          /* lihat rememberLastSession */
+        }
+      }
+
+      // Cadangan: sesi dengan `created_at` terbaru. Backend mengembalikan
+      // daftar tanpa `order_by` (urutan = urutan simpan), jadi baris
+      // pertama bukan yang terbaru — jangan menebak lewat indeks.
+      const newest = [...currentSessions].sort((a, b) =>
+        String(b.created_at || "").localeCompare(String(a.created_at || "")),
+      );
+      preferredId = newest[0]?.id || null;
+    }
+
+    if (!preferredId) return;
+    await openSession(preferredId);
+  }
+
 
   // =====================================================
   // POLLING STATUS
@@ -1191,12 +1367,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  async function fetchTranscriptAndSummary(sessionId) {
+  /**
+   * Ambil + render transkrip & ringkasan sesi.
+   *
+   * `isCurrent` (opsional) dipanggil sebelum menulis DOM. Diperlukan
+   * karena fetch tidak bisa dibatalkan: kalau pengguna memilih sesi lain
+   * di tengah jalan, respons yang datang belakangan tidak boleh menimpa
+   * panel — guard di pemanggil saja terlambat, karena fungsi inilah yang
+   * menulis.
+   */
+  async function fetchTranscriptAndSummary(sessionId, isCurrent = null) {
     const base = "/api/lecture/" + encodeURIComponent(sessionId) + "/";
+    const stillWanted = () => !isCurrent || isCurrent();
 
     const transcriptData = await getJson(base + "transcript/");
-    renderTranscript(transcriptData.transcript);
-    renderSegments(transcriptData.segments);
+    if (stillWanted()) {
+      renderTranscript(transcriptData.transcript);
+      renderSegments(transcriptData.segments);
+    }
 
     let summary = transcriptData.summary;
     if (!summary) {
@@ -1207,7 +1395,7 @@ document.addEventListener("DOMContentLoaded", () => {
         summary = "";
       }
     }
-    renderSummary(summary);
+    if (stillWanted()) renderSummary(summary);
 
     return transcriptData;
   }
@@ -1875,8 +2063,9 @@ document.addEventListener("DOMContentLoaded", () => {
     capture?.stop?.();
   });
 
-  // Muat riwayat sesi saat halaman dibuka.
-  loadSessions();
+  // Muat riwayat sesi saat halaman dibuka, lalu pulihkan sesi yang sedang
+  // ditampilkan sebelum pindah halaman (navigasi = reload penuh).
+  loadSessions().then(restoreLastSession);
 
   // Buka buffer offline lebih awal, supaya ada saat rekaman dimulai.
   // Potongan yang tertinggal dari tab sebelumnya ikut dikirim ulang.

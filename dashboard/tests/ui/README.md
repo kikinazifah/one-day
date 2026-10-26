@@ -9,6 +9,7 @@ ke dalam `node:vm` dengan `window.AkademiaApi` palsu, lalu tiap file
 |---|---|
 | `test_rag_assistant.js` | `rag_assistant.js` — state chat & pencarian RAG |
 | `test_lecture_ws.mjs` | `lecture_ws.js` — koneksi WebSocket rekaman kuliah |
+| `test_lecture_listener_session.mjs` | `lecture_listener.js` — pemulihan sesi setelah reload navigasi |
 
 ## Jalankan
 

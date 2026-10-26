@@ -98,6 +98,32 @@
   align-items: center;
 }
 
+/*
+ * Judul baris adalah tombol "buka sesi ini" (pulihkan transkrip setelah
+ * halaman direload). Tanpa affordance ini baris terlihat seperti teks
+ * mati dan pemulihan sesi mustahil ditemukan.
+ */
+.history-row strong[role="button"] {
+  cursor: pointer;
+}
+
+.history-row strong[role="button"]:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.history-row strong[role="button"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Sesi yang sedang ditampilkan di panel. */
+.history-row.is-selected {
+  border-color: var(--primary);
+  background: var(--surface-low);
+}
+
 /* Isi baris (judul + meta) tetap bisa menyusut, tombol hapus tidak. */
 .history-body {
   display: flex;
