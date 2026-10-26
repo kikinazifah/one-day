@@ -15,9 +15,11 @@
  *      butuh VAPID, tidak butuh tabel subscription, dan tidak menambah
  *      dependensi - dengan harga tab harus terbuka.
  *
- * Modul ini dipakai home.js (dashboard) dan reminder_system.js. Logikanya
- * tidak ditulis dua kali: dulu rendering notifikasi ada di home.js
- * saja, jadi halaman Reminder punya lonceng yang tidak melakukan apa-apa.
+ * Modul ini memasang dirinya sendiri di seluruh halaman (auto-mount di
+ * akhir file ini). Dulu mount() dipanggil dari home.js dan
+ * reminder_system.js — akibatnya lonceng di lima halaman lain (Document
+ * Creator, Lecture Listener, AI Lecturer, RAG, Auto Scheduler) terlihat
+ * tapi tidak bisa diklik dan polling perambannya tidak pernah jalan.
  *
  * Perbedaan dari home.js sebelumnya: modul ini **tidak** memakai
  * ``toast()`` lokal, dan tidak menyimpan badge di template.
@@ -41,9 +43,26 @@
   // ---------------------------------------------------------------
 
   let notifications = [];
+  // Jumlah notifikasi belum dibaca **dari server** — bukan dihitung dari
+  // daftar yang dimuat.
+  //
+  // Daftar notifikasi dipaginasi (backend membatasi jumlahnya), jadi
+  // menghitung dari daftar hanya menghitung halaman pertama. Kalau ada
+  // 30 notifikasi belum dibaca di halaman kedua, lonceng akan
+  // menampilkan "0 belum dibaca" — dan tombol "Tandai semua dibaca"
+  // ikut nonaktif, padahal masih ada yang belum dibaca.
+  //
+  // Nilai ini di-cache supaya render() (yang dipanggil sering) tidak
+  // perlu menghitung ulang, dan `null` menandai "belum pernah dimuat"
+  // supaya kode bisa jatuh ke perhitungan lokal saat backend lama
+  // tidak mengirim metadata.
+  let serverUnreadCount = null;
   let seenAt = null;
   let pollTimer = null;
   let permissionAsked = false;
+  // Penanda mount() sudah jalan — dipanggil dua kali (auto-mount + pemanggil
+  // lama) tidak boleh memasang listener ganda atau timer ganda.
+  let mounted = false;
 
   const panel = () => document.getElementById("notificationPanel");
   const list = () => document.getElementById("notificationList");
@@ -51,6 +70,7 @@
   const readAllButton = () => document.getElementById("notificationReadAll");
 
   function unreadCount() {
+    if (serverUnreadCount !== null) return serverUnreadCount;
     return notifications.filter((notification) => !notification.is_read).length;
   }
 
@@ -141,9 +161,16 @@
     try {
       const data = await api.get("/api/notifications/");
       notifications = data.notifications || [];
+      // Server menghitung jumlah belum dibaca dari **seluruh** hasil
+      // filter, bukan dari halaman yang dikirim. Kalau metadata-nya tidak
+      // ada (backend lama), `null` membuat hitungan jatuh ke daftar
+      // lokal.
+      serverUnreadCount =
+        typeof data.unread_count === "number" ? data.unread_count : null;
     } catch (error) {
       console.warn("Notifikasi gagal dimuat:", error);
       notifications = [];
+      serverUnreadCount = null;
     }
   }
 
@@ -309,13 +336,43 @@
         title: payload.title,
         body: payload.body,
         tag: payload.tag,
-        data: { url: payload.url || "/reminder-system/" },
+        data: { url: payload.url || fallbackUrl(payload.notificationType) },
       });
       return true;
     } catch (error) {
       console.warn("Gagal mengirim notifikasi ke Service Worker:", error);
       return false;
     }
+  }
+
+  // Judul cadangan dan tujuan klik per tipe notifikasi — dipakai saat
+  // server tidak mengirim title/url spesifik. Tujuannya halaman fitur
+  // tempat notifikasi itu bisa ditindaklanjuti. Kuncinya huruf besar;
+  // nilai ``type`` dari server dinormalisasi dulu (enum di DB huruf kecil).
+  const FALLBACK_BY_TYPE = {
+    TASK_REMINDER: { title: "Pengingat tugas", url: "/reminder-system/" },
+    LECTURE_REMINDER: { title: "Pengingat kuliah", url: "/auto-scheduler/" },
+    VIDEO_READY: { title: "Video ajar", url: "/ai-lecturer/" },
+    REPORT_READY: { title: "Laporan mingguan", url: "/ai-lecturer/" },
+    RAG_ANSWER: { title: "Jawaban RAG", url: "/rag-assistant/" },
+    DOCUMENT_READY: { title: "Dokumen siap", url: "/document-creator/" },
+  };
+
+  function normalizeType(notificationType) {
+    return typeof notificationType === "string"
+      ? notificationType.toUpperCase()
+      : "";
+  }
+
+  function fallbackUrl(notificationType) {
+    return (FALLBACK_BY_TYPE[normalizeType(notificationType)] || {}).url || "/";
+  }
+
+  function fallbackTitle(notificationType) {
+    return (
+      (FALLBACK_BY_TYPE[normalizeType(notificationType)] || {}).title ||
+      "Notifikasi"
+    );
   }
 
   /**
@@ -349,9 +406,10 @@
     if (permission === "granted") {
       for (const notification of pending) {
         await showSystemNotification({
-          title: notification.title || "Pengingat tugas",
+          title: notification.title || fallbackTitle(notification.type),
           body: notification.message || "",
           tag: notification.id,
+          notificationType: notification.type,
         });
       }
     }
@@ -398,8 +456,10 @@
    * di seluruh halaman tanpa penyesuaian per halaman.
    */
   function mount() {
+    if (mounted) return;
     const api = global.AkademiaApi;
     if (!api) return;
+    mounted = true;
 
     bell()?.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -461,4 +521,19 @@
     readSeenAt,
     writeSeenAt,
   };
+
+  // Auto-mount: modul ini dimuat lewat ``_shared_scripts.html`` di semua
+  // halaman, dan mount() sendiri menoleransi halaman tanpa lonceng. Tanpa
+  // ini, lima halaman fitur punya lonceng mati (lihat komentar header).
+  //
+  // Script dimuat dengan ``defer``, jadi DOM sudah selesai diparsing saat
+  // file ini dieksekusi — tapi ``AkademiaApi`` (api.js, juga defer) baru
+  // terdefinisi setelah file itu jalan. Karena defer menjamin urutan
+  // eksekusi mengikuti urutan tag, ``AkademiaApi`` sudah ada di sini.
+  // DOMContentLoaded dipakai untuk kasus script dimuat tanpa defer.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mount);
+  } else {
+    mount();
+  }
 })(window);

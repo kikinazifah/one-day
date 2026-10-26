@@ -1295,10 +1295,9 @@ document.addEventListener("DOMContentLoaded", () => {
   wireRefresh();
   wireUnavailable();
   wireVoiceStt();
-  // Notifikasi (panel + polling peramban) dipasang oleh modul bersama
-  // ``notifications.js`` — lonceng dan panelnya ada di base.html, jadi
-  // modul yang sama dipakai halaman Reminder System juga.
-  window.AkademiaNotifications?.mount();
+  // Notifikasi (panel + polling peramban) sudah dipasang otomatis oleh
+  // modul bersama ``notifications.js`` (auto-mount saat DOMContentLoaded)
+  // — tidak perlu mount() eksplisit di sini.
   subscribeToTaskSnapshot();
   loadAll();
 });

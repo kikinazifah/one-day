@@ -1172,8 +1172,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderTasks();
   });
 
-  // Notifikasi (panel web + notifikasi peramban) dipasang oleh modul
-  // bersama ``notifications.js`` — lonceng dan panelnya ada di
-  // base.html, jadi halaman ini memakai modul yang sama dengan dashboard.
-  window.AkademiaNotifications?.mount();
+  // Notifikasi (panel web + notifikasi peramban) sudah dipasang otomatis
+  // oleh modul bersama ``notifications.js`` (auto-mount saat
+  // DOMContentLoaded) — tidak perlu mount() eksplisit di sini.
 });
