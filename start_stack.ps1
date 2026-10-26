@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Start semua komponen one-day stack: Backend FastAPI, Celery Worker, Celery Beat, Django Dashboard.
 
@@ -35,6 +35,17 @@ $ErrorActionPreference = "Continue"
 $RootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $BackendAbs = (Resolve-Path "$RootDir\$BackendPath").Path
 
+# ─── Transcript: semua output script tersimpan ────────────────
+# Saat dijalankan dari shortcut Startup outputnya HILANG (window
+# langsung tertutup) — kegagalan boot menjadi mustahil didiagnosis
+# dari luar. Bukti: boot 26 Okt 2026 12:22, redis gagal total tapi
+# tidak ada satu pun pesan yang tersisa. *.log sudah di-gitignore.
+$TranscriptPath = "$RootDir\start_stack_transcript.log"
+if ((Test-Path $TranscriptPath) -and ((Get-Item $TranscriptPath).Length -gt 1MB)) {
+    Move-Item $TranscriptPath "$TranscriptPath.old" -Force
+}
+Start-Transcript -Path $TranscriptPath -Append -Force | Out-Null
+
 function Test-Port {
     param([int]$Port)
     try {
@@ -43,6 +54,34 @@ function Test-Port {
         $tcp.Close()
         return $true
     } catch { return $false }
+}
+
+function Test-RedisReady {
+    <#
+      Sukses Redis BUKAN sekadar port terbuka. Boot 26 Okt 2026 12:22:
+      Wait-ForPort melaporkan "siap", tapi tidak ada satu pun proses
+      redis-server.exe yang hidup dan tester (polling tiap 5 detik) tidak
+      pernah melihat port up — kriteria "port terbuka" ternyata bisa
+      berbohong pada window di mana sesuatu menerima koneksi di 6379
+      sementara, lalu menghilang.
+
+      Kriteria ketiga, semua harus terpenuhi:
+        1. port terbuka
+        2. proses redis-server.exe dengan --port yang benar hidup
+        3. kondisi di atas bertahan stabil selama $StableSec (tanpa ini,
+           proses yang hidup di detik pertama lalu mati di detik ketiga
+           tetap dihitung sukses)
+    #>
+    param([int]$Port, [int]$StableSec = 2)
+    $deadline = (Get-Date).AddSeconds($StableSec)
+    while ((Get-Date) -lt $deadline) {
+        $portUp = Test-Port $Port
+        $procUp = @(Get-CimInstance Win32_Process -Filter "Name='redis-server.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -match [regex]::Escape("--port $Port") }).Count -gt 0
+        if (-not ($portUp -and $procUp)) { return $false }
+        Start-Sleep -Milliseconds 500
+    }
+    return $true
 }
 
 function Wait-ForPort {
@@ -230,13 +269,45 @@ if ($redisReady) {
                                $_.CommandLine -match [regex]::Escape("--port $RedisPort") } |
                 ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
-            Start-ProcessInNewWindow -Cmd "redis-server --port $RedisPort --save `"`" --appendonly no" -Title "Redis Server"
-            $redisReady = Wait-ForPort -Port $RedisPort -Name "Redis (percobaan $try/$RedisMaxTry)" -TimeoutSec $RedisWaitSec
-            if ($redisReady -and $try -gt 1) {
-                Write-Host "OK: Redis berhasil start pada percobaan ke-$try" -ForegroundColor Green
+            # stdout+stderr redis diarahkan ke file: jendela /k menelan
+            # output, dan saat boot output itulah satu-satunya bukti
+            # MENGAPA redis mati (boot 26 Okt 12:22: window tersisa
+            # kosong tanpa jejak, penyebabnya mustahil dibaca ulang).
+            Start-ProcessInNewWindow -Cmd "redis-server --port $RedisPort --save `"`" --appendonly no >> $RootDir\redis_server.log 2>&1" -Title "Redis Server"
+            # Polling Test-RedisReady (port + proses + stabil), BUKAN
+            # Wait-ForPort — lihat catatan di Test-RedisReady: "port
+            # terbuka" terbukti bisa berbohong saat boot.
+            Write-Host "Menunggu Redis siap - port + proses + stabil (percobaan $try/$RedisMaxTry)..." -ForegroundColor DarkGray
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($sw.Elapsed.TotalSeconds -lt $RedisWaitSec) {
+                if (Test-RedisReady -Port $RedisPort -StableSec 2) { $redisReady = $true; break }
+                Start-Sleep -Milliseconds 500
             }
-            if (-not $redisReady) {
-                Write-Host "[WARN] Redis belum listening dalam $RedisWaitSec detik" -ForegroundColor Yellow
+            if ($redisReady) {
+                $elapsed = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+                if ($try -gt 1) {
+                    Write-Host "OK: Redis berhasil start pada percobaan ke-$try (${elapsed}s)" -ForegroundColor Green
+                } else {
+                    Write-Host "OK: Redis siap di port $RedisPort (${elapsed}s)" -ForegroundColor Green
+                }
+            } else {
+                Write-Host "[WARN] Redis belum siap (port+proses+stabil) dalam $RedisWaitSec detik" -ForegroundColor Yellow
+            }
+        }
+
+        # Diagnosis kalau tetap gagal — tanpa ini penyebabnya mustahil
+        # dibedakan: tidak ada proses = tidak pernah dibuka / mati instan;
+        # proses ada tapi port tidak listening = gantung sebelum bind
+        # (gejala logon 26 Okt); keduanya menuntut perbaikan berbeda.
+        if (-not $redisReady) {
+            $alive = @(Get-CimInstance Win32_Process -Filter "Name='redis-server.exe'" -ErrorAction SilentlyContinue |
+                Where-Object { $_.CommandLine -match [regex]::Escape("--port $RedisPort") })
+            if ($alive.Count -eq 0) {
+                Write-Host "[ERROR] Tidak ada proses redis-server yang bertahan (mati instan atau tidak pernah dibuka)" -ForegroundColor Red
+            } else {
+                foreach ($r in $alive) {
+                    Write-Host "[ERROR] redis-server gantung: pid $($r.ProcessId) sejak $(([datetime]$r.CreationDate).ToString('HH:mm:ss')), port $RedisPort tidak listening" -ForegroundColor Red
+                }
             }
         }
     } else {
@@ -247,8 +318,11 @@ if ($redisReady) {
     }
 }
 
-if (-not $redisReady) {
+if (-not $redisReady -and (Get-Variable redisExe -Scope Script -ErrorAction SilentlyContinue) -and $redisExe) {
     # $RedisMaxTry didefinisikan di atas, di luar blok if — aman untuk PS 5.1.
+    # Digaungkan hanya kalau redis-server memang ada di PATH tapi tetap
+    # gagal; kalau tidak ada, peringatan "tidak ditemukan" di atas sudah
+    # menjelaskan dan pesan ini hanya menyesatkan.
     Write-Host "[ERROR] Redis port $RedisPort TIDAK available setelah $RedisMaxTry percobaan" -ForegroundColor Red
     Write-Host "        Celery tanpa broker = pengingat/tugas tidak pernah jalan." -ForegroundColor Red
     Write-Host "        Jalankan manual dulu: redis-server --port $RedisPort" -ForegroundColor Yellow
@@ -370,3 +444,5 @@ if ($choice -match '^[yY]') {
 
 Write-Host "`nSemua proses tetap berjalan di jendela terpisah." -ForegroundColor Yellow
 Write-Host "Tekan tombol apa saja untuk keluar..." -ForegroundColor DarkGray
+
+Stop-Transcript | Out-Null
