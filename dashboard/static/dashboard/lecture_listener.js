@@ -109,6 +109,15 @@ document.addEventListener("DOMContentLoaded", () => {
   let viewSessionId = null;
   let restoreSeq = 0;
 
+  // ---- Unggahan yang sedang berjalan (tahan pindah halaman) ----
+  //
+  // Navigasi dashboard = reload penuh, dan blob hasil rekaman / file pilihan
+  // ada di memori saja. Kalau unggahan sudah jalan lalu user pindah halaman,
+  // `postFile()` ikut mati dan berkasnya hilang tanpa bekas — persis yang
+  // dikeluhkan. Karena itu berkas disimpan ke IndexedDB **sebelum** dikirim
+  // dan dihapus hanya setelah unggahan sampai di server; halaman berikutnya
+  // melanjutkan yang tertunda (kuncinya di `lecture_offline.js`).
+
   // ---- State live (FR-05) ----
   // `capture` = instance LectureCapture (PCM) atau null kalau jatuh ke
   // jalur MediaRecorder. `offlineStore` = buffer IndexedDB.
@@ -523,6 +532,16 @@ document.addEventListener("DOMContentLoaded", () => {
           await deleteJson(
             "/api/lecture/" + encodeURIComponent(session.id) + "/delete/"
           );
+
+          // Sesi yang dihapus jangan meninggalkan unggahan tertunda —
+          // reload berikutnya akan mencoba mengunggah ke sesi yang sudah
+          // tidak ada (404) berulang-ulang.
+          if (offlineStore?.available) {
+            const pending = await offlineStore.getMeta();
+            if (pending && pending.sessionId === session.id) {
+              await offlineStore.clearMeta();
+            }
+          }
 
           // Sesi yang sedang dibuka ikut terhapus: jangan biarkan id mati
           // tersimpan sebagai pilihan terakhir — reload berikutnya akan
@@ -1400,38 +1419,62 @@ document.addEventListener("DOMContentLoaded", () => {
     return transcriptData;
   }
 
-  /**
-   * Alur lengkap setelah rekaman selesai: stop → upload → polling → transkrip.
-   */
-  async function finalizeRecording(blob, filename) {
-    if (!currentSessionId) {
-      showToast("Sesi rekaman belum dimulai.");
-      return;
-    }
+  // =====================================================
+  // UNGGAH BERKAS — selamat dari pindah halaman
+  // =====================================================
 
-    const sessionId = currentSessionId;
+  /** Simpan berkas ke IndexedDB; diam kalau store tidak tersedia. */
+  async function stashPendingUpload(pending) {
+    if (!offlineStore || !offlineStore.available) return false;
+    return offlineStore.putMeta(pending);
+  }
+
+  /** Hapus berkas tertunda setelah sesinya tuntas. */
+  async function clearPendingUpload() {
+    if (!offlineStore || !offlineStore.available) return;
+    await offlineStore.clearMeta();
+  }
+
+  /**
+   * Selesaikan satu unggahan berkas: stop → upload → polling → transkrip.
+   *
+   * Ini jalur bersama untuk rekaman yang selesai, file pilihan, dan
+   * unggahan yang tertunda setelah reload — supaya tidak ada yang
+   * berperilaku beda cuma karena datang dari halaman lain. Yang
+   * membedakan hanya pesannya (`resumed`): unggahan lanjutan harus
+   * terlihat sebagai lanjutan, bukan sebagai unggahan baru.
+   */
+  async function processPendingUpload(pending, { resumed = false } = {}) {
+    const sessionId = pending.sessionId;
 
     setBusy(true, "Mengunggah...");
-    setStatus("Mengunggah Rekaman");
+    setStatus(resumed ? "Melanjutkan Unggahan" : "Mengunggah Rekaman");
     if (hintNode) {
-      hintNode.textContent = "Mengunggah berkas rekaman ke server...";
+      hintNode.textContent = resumed
+        ? 'Melanjutkan unggahan "' + pending.filename + '" yang tertunda karena halaman dipindah.'
+        : "Mengunggah " + pending.filename + " ke server...";
     }
 
     try {
       // Stop dulu: backend menutup sesi. Statusnya jadi `transcribing`,
-      // dan transkripsi tetap jalan di background.
+      // dan transkripsi tetap jalan di background. Kalau sesi sudah
+      // di-stop sebelum halaman pindah, panggilan kedua ini tetap aman.
       await postJson("/api/lecture/" + encodeURIComponent(sessionId) + "/stop/");
 
       await postFile(
         "/api/lecture/" + encodeURIComponent(sessionId) + "/audio/",
-        blob,
-        filename
+        pending.blob,
+        pending.filename
       );
+
+      // Unggahan sudah sampai di server — kalau pindah halaman lagi di
+      // tengah transkripsi, cukup polling ulang, tidak perlu upload ulang.
+      await clearPendingUpload();
 
       setStatus("Memproses transkrip...");
       if (hintNode) {
         hintNode.textContent =
-          "Rekaman terunggah. Backend sedang mentranskrip (Whisper di CPU) — biasanya butuh beberapa detik sampai beberapa menit.";
+          "Berkas terunggah. Backend sedang mentranskrip (Whisper di CPU) — biasanya butuh beberapa detik sampai beberapa menit.";
       }
 
       await pollUntilDone(sessionId);
@@ -1450,6 +1493,38 @@ document.addEventListener("DOMContentLoaded", () => {
       setBusy(false, "");
       stopPolling();
     }
+  }
+
+  /**
+   * Simpan unggahan ke IndexedDB, baru selesaikan.
+   *
+   * Urutannya wajib begini: **simpan dulu, kirim kemudian**. Kalau
+   * kebalik, pindah halaman di tengah `postFile()` menghapus berkasnya
+   * begitu saja — itulah bug yang dikeluhkan pengguna.
+   */
+  async function queueUpload(pending) {
+    if (await stashPendingUpload(pending)) {
+      rememberLastSession(pending.sessionId);
+    }
+
+    await processPendingUpload(pending);
+  }
+
+  /**
+   * Alur lengkap setelah rekaman selesai: simpan → stop → upload → transkrip.
+   */
+  async function finalizeRecording(blob, filename) {
+    if (!currentSessionId) {
+      showToast("Sesi rekaman belum dimulai.");
+      return;
+    }
+
+    await queueUpload({
+      sessionId: currentSessionId,
+      filename,
+      blob,
+      title: titleInput?.value || "",
+    });
   }
 
   // =====================================================
@@ -1871,50 +1946,50 @@ document.addEventListener("DOMContentLoaded", () => {
       const file = fileInput.files && fileInput.files[0];
       if (!file || busy) return;
 
-      setBusy(true, "Mengunggah...");
-      setStatus("Mengunggah Rekaman");
-      if (hintNode) {
-        hintNode.textContent = "Mengunggah " + file.name + " ke server...";
-      }
+      // Kosongkan input segera supaya berkas sama bisa dipilih lagi
+      // nanti — salinan berkasnya sudah dipegang `pending`.
+      fileInput.value = "";
 
       try {
         if (!currentSessionId) {
           await startSession();
         }
 
-        await postJson(
-          "/api/lecture/" + encodeURIComponent(currentSessionId) + "/stop/"
-        );
+        const pending = {
+          sessionId: currentSessionId,
+          filename: file.name,
+          blob: file,
+          title: titleInput?.value || "",
+        };
 
-        await postFile(
-          "/api/lecture/" + encodeURIComponent(currentSessionId) + "/audio/",
-          file,
-          file.name
-        );
-
-        setStatus("Memproses transkrip...");
-        if (hintNode) {
-          hintNode.textContent =
-            "Berkas terunggah. Backend sedang mentranskrip (Whisper di CPU) — biasanya butuh beberapa detik sampai beberapa menit.";
-        }
-
-        await pollUntilDone(currentSessionId);
-        await fetchTranscriptAndSummary(currentSessionId);
-
-        showToast("Transkrip dan ringkasan siap.");
-        await loadSessions();
+        await queueUpload(pending);
       } catch (error) {
         setStatus("Gagal Diproses");
         if (hintNode) hintNode.textContent = "Terjadi kesalahan: " + error.message;
         showToast(error.message);
         await loadSessions();
-      } finally {
-        setBusy(false, "");
-        stopPolling();
-        // Kosongkan input supaya berkas sama bisa diunggah ulang.
-        fileInput.value = "";
       }
     });
+  }
+
+  /**
+   * Lanjutkan unggahan yang tertunda karena halaman dipanggil ulang.
+   *
+   * Harus dipanggil SETELAH IndexedDB terbuka — blob-nya tinggal di sana.
+   */
+  async function resumePendingUpload() {
+    if (!offlineStore || !offlineStore.available) return;
+
+    const pending = await offlineStore.getMeta();
+    if (!pending || !pending.blob || !pending.sessionId) return;
+
+    // Sesi yang jadi target unggahan ikut jadi sesi tampilan, supaya
+    // transkrip yang muncul nanti terlihat di panel (bukan sesi lama).
+    currentSessionId = pending.sessionId;
+    viewSessionId = pending.sessionId;
+    rememberLastSession(pending.sessionId);
+
+    await processPendingUpload(pending, { resumed: true });
   }
 
   if (summarizeButton) {
@@ -2065,7 +2140,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Muat riwayat sesi saat halaman dibuka, lalu pulihkan sesi yang sedang
   // ditampilkan sebelum pindah halaman (navigasi = reload penuh).
-  loadSessions().then(restoreLastSession);
+  const restored = loadSessions()
+    .then(restoreLastSession)
+    .catch(() => {});
 
   // Buka buffer offline lebih awal, supaya ada saat rekaman dimulai.
   // Potongan yang tertinggal dari tab sebelumnya ikut dikirim ulang.
@@ -2073,6 +2150,16 @@ document.addEventListener("DOMContentLoaded", () => {
     offlineStore = store;
 
     if (!store.available) return;
+
+    // Unggahan yang tertunda karena halaman dipindah dilanjutkan di sini —
+    // store-nya baru saja terbuka, dan tanpa langkah ini berkas yang tadi
+    // diunggah menggantung tanpa pernah sampai ke server.
+    //
+    // Menunggu `restored` lebih dulu supaya urutan tulis DOM deterministik:
+    // panel berakhir menampilkan sesi yang baru diunggah, bukan sesi yang
+    // sempat dipulihkan dari pilihan terakhir.
+    await restored;
+    await resumePendingUpload();
 
     const sessions = await store.sessions();
 

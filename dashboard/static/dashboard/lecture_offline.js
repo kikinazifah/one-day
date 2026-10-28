@@ -181,6 +181,58 @@
       return rows.length;
     }
 
+    /**
+     * Simpan satu nilai di store `meta` (kunci tunggal).
+     *
+     * Dipakai untuk unggahan berkas yang sedang berjalan: blob-nya
+     * ditulis ke disk **sebelum** dikirim, jadi pindah halaman di tengah
+     * unggahan membatalkan kirim — bukan menghapus berkasnya.
+     */
+    async putMeta(value) {
+      if (!this.available) return false;
+
+      try {
+        const tx = this.db.transaction(STORE_META, "readwrite");
+        tx.objectStore(STORE_META).put({ key: "pendingUpload", ...value });
+        await txDone(tx);
+        return true;
+      } catch (error) {
+        this.lastError = error;
+        return false;
+      }
+    }
+
+    /** Baca nilai dari store `meta`; `null` kalau tidak ada. */
+    async getMeta() {
+      if (!this.available) return null;
+
+      try {
+        const tx = this.db.transaction(STORE_META, "readonly");
+        const request = tx.objectStore(STORE_META).get("pendingUpload");
+
+        return await new Promise((resolve, reject) => {
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => reject(request.error);
+        });
+      } catch (error) {
+        this.lastError = error;
+        return null;
+      }
+    }
+
+    /** Hapus nilai dari store `meta` (mis. setelah unggahan tuntas). */
+    async clearMeta() {
+      if (!this.available) return;
+
+      try {
+        const tx = this.db.transaction(STORE_META, "readwrite");
+        tx.objectStore(STORE_META).delete("pendingUpload");
+        await txDone(tx);
+      } catch (error) {
+        this.lastError = error;
+      }
+    }
+
     /** Buang seluruh antrean satu sesi (mis. setelah sesi dihapus). */
     async clear(sessionId) {
       if (!this.available) return;
